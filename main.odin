@@ -4,8 +4,6 @@ import "core:fmt"
 
 MAX_THINGS :: 8
 
-Thing_Idx :: int
-
 Vec2 :: [2]f32
 
 Kind :: enum {
@@ -23,18 +21,24 @@ Thing :: struct {
 }
 
 Thing_Ref :: struct {
-	idx: Thing_Idx,
+	idx: int,
 	gen: int,
 }
 
 Things :: struct {
-	things: [MAX_THINGS]Thing,
-	used:   [MAX_THINGS]bool,
-	gen:    [MAX_THINGS]int,
+	things:     [MAX_THINGS]Thing,
+	used:       [MAX_THINGS]bool,
+	gen:        [MAX_THINGS]int,
+	first_free: int,
+	next_free:  [MAX_THINGS]int,
+}
+
+init_things :: proc(things: ^Things) {
+	// Init the free list, starting at idx 1, since the 0th index is the nil instance.
+	things.first_free = 1
 }
 
 add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
-
 	slot := find_empty(things)
 
 	if b32(slot) {
@@ -49,17 +53,23 @@ add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
 	}
 }
 
-find_empty :: proc(things: ^Things) -> Thing_Idx {
-	for i in 1 ..< MAX_THINGS {
-		if !things.used[i] {
-			return i
-		}
-	}
+remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
+	if slot := deref(things^, thing_ref); b32(slot) {
+		things.used[deref(things^, thing_ref)] = false
 
-	return {}
+		if b32(things.first_free) {
+			things.next_free[slot] = things.first_free
+		}
+
+		things.first_free = slot
+	}
 }
 
-deref :: proc(things: Things, thing_ref: Thing_Ref) -> Thing_Idx {
+find_empty :: proc(things: ^Things) -> int {
+	return things.first_free
+}
+
+deref :: proc(things: Things, thing_ref: Thing_Ref) -> int {
 	if thing_ref.idx > 0 &&
 	   thing_ref.idx < MAX_THINGS &&
 	   things.used[thing_ref.idx] &&
@@ -70,24 +80,37 @@ deref :: proc(things: Things, thing_ref: Thing_Ref) -> Thing_Idx {
 	}
 }
 
+// TODO(Thomas): This has an issue where if the deref(thing_ref) return 0 (the nil instance)
+// we'll return a pointer to that nil, which the caller might change. This should not crash,
+// but it is most likely not what the caller intended. Better approach might bet get and set helper
+// as shown by Anton here: https://youtu.be/-m7lhJ_Mzdg?t=2032
+get_thing :: proc(things: ^Things, thing_ref: Thing_Ref) -> ^Thing {
+	idx := deref(things^, thing_ref)
+	// NOTE(Thomas): This assert helps catch bugs that is related to the TODO above.
+	// I Still think it's a good idea to do something like the set / get helper since that has
+	// some more benefits too potentially.
+	assert(idx != 0)
+	return &things.things[idx]
+}
+
 main :: proc() {
 
-	things: Things
+	things := Things{}
+	init_things(&things)
 
 	player_ref := add_thing(&things, .Player)
 
-	another_player_ref := add_thing(&things, .Player)
+	fmt.println("player_ref: ", player_ref)
+
+	remove_thing(&things, player_ref)
+
+	player_ref = add_thing(&things, .Player)
 
 	fmt.println("player_ref: ", player_ref)
-	fmt.println("another_player_ref: ", another_player_ref)
-
-	fmt.println("things before mutating: ", things)
-
 
 	// Mutating the things behind player_ref
-	things.things[deref(things, player_ref)].health = 4
+	get_thing(&things, player_ref).health = 4
 
 	fmt.println("things after mutating: ", things)
-
 
 }
