@@ -1,5 +1,7 @@
 package main
 
+import rl "vendor:raylib"
+
 MAX_THINGS :: 8
 
 Vec2 :: [2]f32
@@ -9,13 +11,15 @@ Kind :: enum {
 	Asteroid,
 	Alien,
 	Player,
+	Bullet,
 }
 
 Thing :: struct {
-	kind:   Kind,
-	pos:    Vec2,
-	health: f32,
-	damage: f32,
+	kind:    Kind,
+	pos:     Vec2,
+	health:  f32,
+	damage:  f32,
+	texture: rl.Texture2D,
 }
 
 Thing_Ref :: struct {
@@ -34,6 +38,18 @@ Things :: struct {
 init_things :: proc(things: ^Things) {
 	// Init the free list, starting at idx 1, since the 0th index is the nil instance.
 	things.first_free = 1
+
+	// Initializing the free list
+	for i in 1 ..< MAX_THINGS {
+		if i + 1 < MAX_THINGS {
+			things.next_free[i] = i + 1
+		} else {
+			// This is the free element when initializing the free list.
+			// This one points to the nil element because there are no
+			// more free elements.
+			things.next_free[i] = 0
+		}
+	}
 }
 
 add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
@@ -45,6 +61,14 @@ add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
 		things.things[slot].kind = kind
 		things.used[slot] = true
 		things.gen[slot] += 1
+
+		// The first_free needs to point to the next free at it's index.
+		things.first_free = things.next_free[slot]
+
+		// This slot is now taken, so the next_free for this slot / idx
+		// should be updated to point to nil.
+		things.next_free[slot] = 0
+
 		return {slot, things.gen[slot]}
 	} else {
 		return {}
