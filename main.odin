@@ -43,9 +43,6 @@ main :: proc() {
 
 	// Bullet
 	bullet_sprite := rl.LoadTexture("./data/sprites/bullet.png")
-	// CONTINUE HERE: This doesn't work properly, it just overwrites the player
-	// because find_empty is not updated properly when things are added I think.
-	// Need to think about and understand how that free list should work.
 	bullet_ref := add_thing(&things, .Bullet)
 	bullet := get_thing(&things, bullet_ref)
 	bullet.pos = {
