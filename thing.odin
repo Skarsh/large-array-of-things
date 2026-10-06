@@ -15,11 +15,12 @@ Kind :: enum {
 }
 
 Thing :: struct {
-	kind:    Kind,
-	pos:     Vec2,
-	health:  f32,
-	damage:  f32,
-	texture: rl.Texture2D,
+	kind:     Kind,
+	pos:      Vec2,
+	velocity: Vec2,
+	health:   f32,
+	damage:   f32,
+	texture:  rl.Texture2D,
 }
 
 Thing_Ref :: struct {
@@ -100,6 +101,12 @@ deref :: proc(things: Things, thing_ref: Thing_Ref) -> int {
 	} else {
 		return 0
 	}
+}
+
+// CONTINUE HERE: We need a way to easily make refs, that can be used in get_thing and probably
+// set and get procedures on the properties eventually.
+make_ref :: proc(slot: int) -> Thing_Ref {
+	return {}
 }
 
 // TODO(Thomas): This has an issue where if the deref(thing_ref) return 0 (the nil instance)
