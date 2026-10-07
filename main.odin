@@ -1,23 +1,24 @@
 package main
 
 import "core:fmt"
+import "core:math/linalg"
 
 import rl "vendor:raylib"
 
 WINDOW_WIDTH :: 800
 WINDOW_HEIGHT :: 600
 
-// TODO(Thomas): Should not directly access things[i] like this, should
-// probably go through a ref and get?
+
+// TODO(Thomas): I think its still a good idea to check if things.used[i] is true,
+// even though it shouldn't crash (it will panic now due to assert in deref).
+// The if things.used[i] could be part of an iterator solution we should probably go for.
 draw_things :: proc(things: Things) {
 	for i in 1 ..< MAX_THINGS {
 		if things.used[i] {
-			rl.DrawTexture(
-				things.things[i].texture,
-				i32(things.things[i].pos.x),
-				i32(things.things[i].pos.y),
-				rl.WHITE,
-			)
+			ref := make_ref(things, i)
+			pos := get_pos(things, ref)
+			rl.DrawTexture(get_texture(things, ref), i32(pos.x), i32(pos.y), rl.WHITE)
+
 		}
 	}
 }
@@ -36,17 +37,16 @@ main :: proc() {
 	player_sprite := rl.LoadTexture("./data/sprites/player_ship.png")
 	bullet_sprite := rl.LoadTexture("./data/sprites/bullet.png")
 
+	// Player
 	{
-		// Player
 		player_ref := add_thing(&things, .Player)
-		player := get_thing(&things, player_ref)
-		player.pos = {
-			(f32(WINDOW_WIDTH) / 2) - (f32(player_sprite.width) / 2),
-			f32(WINDOW_HEIGHT) - 100,
-		}
-		player.health = 100
-		player.texture = player_sprite
-
+		set_pos(
+			&things,
+			player_ref,
+			{(f32(WINDOW_WIDTH) / 2) - (f32(player_sprite.width) / 2), f32(WINDOW_HEIGHT) - 100},
+		)
+		set_health(&things, player_ref, 100)
+		set_texture(&things, player_ref, player_sprite)
 	}
 
 	for !rl.WindowShouldClose() {
@@ -55,52 +55,60 @@ main :: proc() {
 			break
 		}
 
-		// TODO(Thomas): Very bad, but it does the trick.
-		// This pattern seems to appear over and over, and for input
-		// stuff, like shooting a bullet the player thing, or at least a way
-		// to retrieve properties from the player is needed, .e.g the position of the player
-		// so that we can know where to spawn bullets etc.
-		// TODO(Thomas): Should not directly access things[i] like this, should
-		// probably go through a ref and get?
-		player: Thing
+		player_ref: Thing_Ref
 		for i in 1 ..< MAX_THINGS {
 			if things.used[i] {
-				thing := things.things[i]
-				if thing.kind == .Player {
-					player = thing
+				ref := make_ref(things, i)
+				kind := get_kind(things, ref)
+				if kind == .Player {
+					player_ref = ref
 				}
 			}
 		}
 
-
 		// Input
 		if rl.IsKeyPressed(.SPACE) {
+
 			bullet_ref := add_thing(&things, .Bullet)
-			bullet := get_thing(&things, bullet_ref)
-			bullet.pos = {
-				(f32(WINDOW_WIDTH) / 2) - (f32(player.texture.width) / 2),
-				f32(WINDOW_HEIGHT) - 150,
-			}
-			bullet.velocity = {0, -600}
-			bullet.damage = 10
-			bullet.texture = bullet_sprite
+
+			player_texture := get_texture(things, player_ref)
+			set_pos(
+				&things,
+				bullet_ref,
+				{
+					(f32(WINDOW_WIDTH) / 2) - (f32(player_texture.width) / 2),
+					f32(WINDOW_HEIGHT) - 150,
+				},
+			)
+			set_velocity(&things, bullet_ref, {0, -600})
+			set_damage(&things, bullet_ref, 10)
+			set_texture(&things, bullet_ref, bullet_sprite)
 		}
 
 
 		// Update
-		// TODO(Thomas): Should not directly access things[i] like this, should
-		// probably go through a ref and get?
+		// TODO(Thomas): I think its still a good idea to check if things.used[i] is true,
+		// even though it shouldn't crash (it will panic now due to assert in deref).
+		// The if things.used[i] could be part of an iterator solution we should probably go for.
 		for i in 1 ..< MAX_THINGS {
 			if things.used[i] {
+				ref := make_ref(things, i)
+				velocity := get_velocity(things, ref)
 
-				things.things[i].pos += things.things[i].velocity * rl.GetFrameTime()
+				if linalg.length(velocity) > 0 {
+					pos := get_pos(things, ref)
+					new_pos := pos + velocity * rl.GetFrameTime()
 
+					if new_pos.x > 0 &&
+					   new_pos.x < WINDOW_WIDTH &&
+					   new_pos.y > 0 &&
+					   new_pos.y < WINDOW_HEIGHT {
 
-				// Remove the thing from the things array here, since it is out of bounds.
-				if things.things[i].pos.y < 0 || things.things[i].pos.y > WINDOW_HEIGHT {
-
+						set_pos(&things, ref, new_pos)
+					} else {
+						remove_thing(&things, ref)
+					}
 				}
-
 			}
 		}
 
@@ -114,6 +122,4 @@ main :: proc() {
 	}
 
 	rl.CloseWindow()
-
-
 }

@@ -99,25 +99,74 @@ deref :: proc(things: Things, thing_ref: Thing_Ref) -> int {
 	   things.gen[thing_ref.idx] == thing_ref.gen {
 		return thing_ref.idx
 	} else {
+		assert(false, "Trying to deref a nil instance")
 		return 0
 	}
 }
 
-// CONTINUE HERE: We need a way to easily make refs, that can be used in get_thing and probably
-// set and get procedures on the properties eventually.
-make_ref :: proc(slot: int) -> Thing_Ref {
-	return {}
+make_ref :: proc(things: Things, slot: int) -> Thing_Ref {
+	return {idx = slot, gen = things.gen[slot]}
 }
 
-// TODO(Thomas): This has an issue where if the deref(thing_ref) return 0 (the nil instance)
-// we'll return a pointer to that nil, which the caller might change. This should not crash,
-// but it is most likely not what the caller intended. Better approach might bet get and set helper
-// as shown by Anton here: https://youtu.be/-m7lhJ_Mzdg?t=2032
-get_thing :: proc(things: ^Things, thing_ref: Thing_Ref) -> ^Thing {
-	idx := deref(things^, thing_ref)
-	// NOTE(Thomas): This assert helps catch bugs that is related to the TODO above.
-	// I Still think it's a good idea to do something like the set / get helper since that has
-	// some more benefits too potentially.
-	assert(idx != 0)
-	return &things.things[idx]
+
+// ------- Getters and Setters ------- //
+
+get_kind :: proc(things: Things, ref: Thing_Ref) -> Kind {
+	return things.things[deref(things, ref)].kind
+}
+
+set_kind :: proc(things: ^Things, ref: Thing_Ref, kind: Kind) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].kind = kind
+	}
+}
+
+get_pos :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
+	return things.things[deref(things, ref)].pos
+}
+
+set_pos :: proc(things: ^Things, ref: Thing_Ref, pos: Vec2) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].pos = pos
+	}
+}
+
+get_velocity :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
+	return things.things[deref(things, ref)].velocity
+}
+
+set_velocity :: proc(things: ^Things, ref: Thing_Ref, velocity: Vec2) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].velocity = velocity
+	}
+}
+
+get_health :: proc(things: Things, ref: Thing_Ref) -> f32 {
+	return things.things[deref(things, ref)].health
+}
+
+set_health :: proc(things: ^Things, ref: Thing_Ref, health: f32) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].health = health
+	}
+}
+
+get_damage :: proc(things: Things, ref: Thing_Ref) -> f32 {
+	return things.things[deref(things, ref)].damage
+}
+
+set_damage :: proc(things: ^Things, ref: Thing_Ref, damage: f32) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].damage = damage
+	}
+}
+
+get_texture :: proc(things: Things, ref: Thing_Ref) -> rl.Texture2D {
+	return things.things[deref(things, ref)].texture
+}
+
+set_texture :: proc(things: ^Things, ref: Thing_Ref, texture: rl.Texture2D) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].texture = texture
+	}
 }
