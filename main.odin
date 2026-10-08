@@ -8,18 +8,11 @@ import rl "vendor:raylib"
 WINDOW_WIDTH :: 800
 WINDOW_HEIGHT :: 600
 
-
-// TODO(Thomas): I think its still a good idea to check if things.used[i] is true,
-// even though it shouldn't crash (it will panic now due to assert in deref).
-// The if things.used[i] could be part of an iterator solution we should probably go for.
-draw_things :: proc(things: Things) {
-	for i in 1 ..< MAX_THINGS {
-		if things.used[i] {
-			ref := make_ref(things, i)
-			pos := get_pos(things, ref)
-			rl.DrawTexture(get_texture(things, ref), i32(pos.x), i32(pos.y), rl.WHITE)
-
-		}
+draw_things :: proc(things: ^Things) {
+	iter := make_iterator(things)
+	for ref in next_thing(&iter) {
+		pos := get_pos(things^, ref)
+		rl.DrawTexture(get_texture(things^, ref), i32(pos.x), i32(pos.y), rl.WHITE)
 	}
 }
 
@@ -56,13 +49,14 @@ main :: proc() {
 		}
 
 		player_ref: Thing_Ref
-		for i in 1 ..< MAX_THINGS {
-			if things.used[i] {
-				ref := make_ref(things, i)
+		{
+			iter := make_iterator(&things)
+			for ref in next_thing(&iter) {
 				kind := get_kind(things, ref)
 				if kind == .Player {
 					player_ref = ref
 				}
+
 			}
 		}
 
@@ -87,12 +81,9 @@ main :: proc() {
 
 
 		// Update
-		// TODO(Thomas): I think its still a good idea to check if things.used[i] is true,
-		// even though it shouldn't crash (it will panic now due to assert in deref).
-		// The if things.used[i] could be part of an iterator solution we should probably go for.
-		for i in 1 ..< MAX_THINGS {
-			if things.used[i] {
-				ref := make_ref(things, i)
+		{
+			iter := make_iterator(&things)
+			for ref in next_thing(&iter) {
 				velocity := get_velocity(things, ref)
 
 				if linalg.length(velocity) > 0 {
@@ -116,7 +107,7 @@ main :: proc() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.BLACK)
 
-		draw_things(things)
+		draw_things(&things)
 
 		rl.EndDrawing()
 	}

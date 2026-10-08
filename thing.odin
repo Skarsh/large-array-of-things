@@ -1,5 +1,8 @@
 package main
 
+import "core:fmt"
+import "core:testing"
+
 import rl "vendor:raylib"
 
 MAX_THINGS :: 8
@@ -78,7 +81,7 @@ add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
 
 remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
 	if slot := deref(things^, thing_ref); b32(slot) {
-		things.used[deref(things^, thing_ref)] = false
+		things.used[slot] = false
 
 		if b32(things.first_free) {
 			things.next_free[slot] = things.first_free
@@ -108,6 +111,27 @@ make_ref :: proc(things: Things, slot: int) -> Thing_Ref {
 	return {idx = slot, gen = things.gen[slot]}
 }
 
+Thing_Iterator :: struct {
+	idx:    int,
+	things: ^Things,
+}
+
+make_iterator :: proc(things: ^Things) -> Thing_Iterator {
+	return {idx = 1, things = things}
+}
+
+next_thing :: proc(iter: ^Thing_Iterator) -> (Thing_Ref, bool) {
+	for iter.idx < len(iter.things.things) {
+		current_idx := iter.idx
+		iter.idx += 1
+
+		if iter.things.used[current_idx] {
+			return make_ref(iter.things^, current_idx), true
+		}
+	}
+
+	return {}, false
+}
 
 // ------- Getters and Setters ------- //
 
