@@ -8,6 +8,8 @@ import rl "vendor:raylib"
 WINDOW_WIDTH :: 800
 WINDOW_HEIGHT :: 600
 
+MAX_SPRITES :: 8
+
 draw_things :: proc(things: ^Things) {
 	iter := make_iterator(things)
 	for ref in next_thing(&iter) {
@@ -16,30 +18,53 @@ draw_things :: proc(things: ^Things) {
 	}
 }
 
-main :: proc() {
+Game :: struct {
+	things:  Things,
+	sprites: [MAX_SPRITES]rl.Texture2D,
+}
 
+PLAYER_SPRITE_IDX :: 0
+BULLET_SPRITE_IDX :: 1
+ALIEN_SPRITE_IDX :: 2
+
+init_game :: proc(game: ^Game) {
 	things := Things{}
 	init_things(&things)
+	game.things = things
+
+	// Loading sprites
+	game.sprites[PLAYER_SPRITE_IDX] = rl.LoadTexture("./data/sprites/player_ship.png")
+	game.sprites[BULLET_SPRITE_IDX] = rl.LoadTexture("./data/sprites/bullet.png")
+	game.sprites[ALIEN_SPRITE_IDX] = rl.LoadTexture("./data/sprites/alien.png")
+}
+
+update :: proc(game: ^Game) {
+
+}
+
+main :: proc() {
 
 	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Definitely Not Asteroids")
 
 	rl.SetWindowState({.WINDOW_RESIZABLE})
 	rl.SetTargetFPS(60)
 
-	// Loading sprites
-	player_sprite := rl.LoadTexture("./data/sprites/player_ship.png")
-	bullet_sprite := rl.LoadTexture("./data/sprites/bullet.png")
+	game: Game
+	init_game(&game)
 
 	// Player
 	{
-		player_ref := add_thing(&things, .Player)
+		player_ref := add_thing(&game.things, .Player)
 		set_pos(
-			&things,
+			&game.things,
 			player_ref,
-			{(f32(WINDOW_WIDTH) / 2) - (f32(player_sprite.width) / 2), f32(WINDOW_HEIGHT) - 100},
+			{
+				(f32(WINDOW_WIDTH) / 2) - (f32(game.sprites[PLAYER_SPRITE_IDX].width) / 2),
+				f32(WINDOW_HEIGHT) - 100,
+			},
 		)
-		set_health(&things, player_ref, 100)
-		set_texture(&things, player_ref, player_sprite)
+		set_health(&game.things, player_ref, 100)
+		set_texture(&game.things, player_ref, game.sprites[PLAYER_SPRITE_IDX])
 	}
 
 	for !rl.WindowShouldClose() {
@@ -50,12 +75,12 @@ main :: proc() {
 
 		// Update entities position etc
 		{
-			iter := make_iterator(&things)
+			iter := make_iterator(&game.things)
 			for ref in next_thing(&iter) {
-				velocity := get_velocity(things, ref)
+				velocity := get_velocity(game.things, ref)
 
 				if linalg.length(velocity) > 0 {
-					pos := get_pos(things, ref)
+					pos := get_pos(game.things, ref)
 					new_pos := pos + velocity * rl.GetFrameTime()
 
 					if new_pos.x > 0 &&
@@ -63,9 +88,9 @@ main :: proc() {
 					   new_pos.y > 0 &&
 					   new_pos.y < WINDOW_HEIGHT {
 
-						set_pos(&things, ref, new_pos)
+						set_pos(&game.things, ref, new_pos)
 					} else {
-						remove_thing(&things, ref)
+						remove_thing(&game.things, ref)
 					}
 				}
 			}
@@ -74,9 +99,9 @@ main :: proc() {
 		// PLayer
 		player_ref: Thing_Ref
 		{
-			iter := make_iterator(&things)
+			iter := make_iterator(&game.things)
 			for ref in next_thing(&iter) {
-				kind := get_kind(things, ref)
+				kind := get_kind(game.things, ref)
 				if kind == .Player {
 					player_ref = ref
 				}
@@ -87,34 +112,34 @@ main :: proc() {
 		// Input
 		if rl.IsKeyPressed(.SPACE) {
 
-			player_texture := get_texture(things, player_ref)
-			player_pos := get_pos(things, player_ref)
+			player_texture := get_texture(game.things, player_ref)
+			player_pos := get_pos(game.things, player_ref)
 
-			bullet_ref := add_thing(&things, .Bullet)
+			bullet_ref := add_thing(&game.things, .Bullet)
 			set_pos(
-				&things,
+				&game.things,
 				bullet_ref,
 				{player_pos.x, player_pos.y - (f32(player_texture.height) / 2 + 10)},
 			)
-			set_velocity(&things, bullet_ref, {0, -600})
-			set_damage(&things, bullet_ref, 10)
-			set_texture(&things, bullet_ref, bullet_sprite)
+			set_velocity(&game.things, bullet_ref, {0, -600})
+			set_damage(&game.things, bullet_ref, 10)
+			set_texture(&game.things, bullet_ref, game.sprites[BULLET_SPRITE_IDX])
 		}
 
 		if rl.IsKeyDown(.LEFT) {
-			set_velocity(&things, player_ref, -{300, 0})
-			player_velocity := get_velocity(things, player_ref)
+			set_velocity(&game.things, player_ref, -{300, 0})
+			player_velocity := get_velocity(game.things, player_ref)
 		} else if rl.IsKeyDown(.RIGHT) {
-			set_velocity(&things, player_ref, {300, 0})
+			set_velocity(&game.things, player_ref, {300, 0})
 		} else {
-			set_velocity(&things, player_ref, {0, 0})
+			set_velocity(&game.things, player_ref, {0, 0})
 		}
 
 		// Draw
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.BLACK)
 
-		draw_things(&things)
+		draw_things(&game.things)
 
 		rl.EndDrawing()
 	}
