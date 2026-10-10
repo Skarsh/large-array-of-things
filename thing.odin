@@ -5,7 +5,7 @@ import "core:testing"
 
 import rl "vendor:raylib"
 
-MAX_THINGS :: 8
+MAX_THINGS :: 16
 
 Vec2 :: [2]f32
 
