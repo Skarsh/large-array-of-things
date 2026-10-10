@@ -48,39 +48,7 @@ main :: proc() {
 			break
 		}
 
-		player_ref: Thing_Ref
-		{
-			iter := make_iterator(&things)
-			for ref in next_thing(&iter) {
-				kind := get_kind(things, ref)
-				if kind == .Player {
-					player_ref = ref
-				}
-
-			}
-		}
-
-		// Input
-		if rl.IsKeyPressed(.SPACE) {
-
-			bullet_ref := add_thing(&things, .Bullet)
-
-			player_texture := get_texture(things, player_ref)
-			set_pos(
-				&things,
-				bullet_ref,
-				{
-					(f32(WINDOW_WIDTH) / 2) - (f32(player_texture.width) / 2),
-					f32(WINDOW_HEIGHT) - 150,
-				},
-			)
-			set_velocity(&things, bullet_ref, {0, -600})
-			set_damage(&things, bullet_ref, 10)
-			set_texture(&things, bullet_ref, bullet_sprite)
-		}
-
-
-		// Update
+		// Update entities position etc
 		{
 			iter := make_iterator(&things)
 			for ref in next_thing(&iter) {
@@ -101,6 +69,45 @@ main :: proc() {
 					}
 				}
 			}
+		}
+
+		// PLayer
+		player_ref: Thing_Ref
+		{
+			iter := make_iterator(&things)
+			for ref in next_thing(&iter) {
+				kind := get_kind(things, ref)
+				if kind == .Player {
+					player_ref = ref
+				}
+
+			}
+		}
+
+		// Input
+		if rl.IsKeyPressed(.SPACE) {
+
+			player_texture := get_texture(things, player_ref)
+			player_pos := get_pos(things, player_ref)
+
+			bullet_ref := add_thing(&things, .Bullet)
+			set_pos(
+				&things,
+				bullet_ref,
+				{player_pos.x, player_pos.y - (f32(player_texture.height) / 2 + 10)},
+			)
+			set_velocity(&things, bullet_ref, {0, -600})
+			set_damage(&things, bullet_ref, 10)
+			set_texture(&things, bullet_ref, bullet_sprite)
+		}
+
+		if rl.IsKeyDown(.LEFT) {
+			set_velocity(&things, player_ref, -{300, 0})
+			player_velocity := get_velocity(things, player_ref)
+		} else if rl.IsKeyDown(.RIGHT) {
+			set_velocity(&things, player_ref, {300, 0})
+		} else {
+			set_velocity(&things, player_ref, {0, 0})
 		}
 
 		// Draw
