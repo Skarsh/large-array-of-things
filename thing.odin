@@ -3,8 +3,6 @@ package main
 import "core:fmt"
 import "core:testing"
 
-import rl "vendor:raylib"
-
 MAX_THINGS :: 16
 
 Vec2 :: [2]f32
@@ -23,7 +21,7 @@ Thing :: struct {
 	velocity: Vec2,
 	health:   f32,
 	damage:   f32,
-	texture:  rl.Texture2D,
+	sprite:   Sprite_ID,
 }
 
 Thing_Ref :: struct {
@@ -185,12 +183,12 @@ set_damage :: proc(things: ^Things, ref: Thing_Ref, damage: f32) {
 	}
 }
 
-get_texture :: proc(things: Things, ref: Thing_Ref) -> rl.Texture2D {
-	return things.things[deref(things, ref)].texture
+get_sprite :: proc(things: Things, ref: Thing_Ref) -> Sprite_ID {
+	return things.things[deref(things, ref)].sprite
 }
 
-set_texture :: proc(things: ^Things, ref: Thing_Ref, texture: rl.Texture2D) {
+set_sprite :: proc(things: ^Things, ref: Thing_Ref, sprite: Sprite_ID) {
 	if slot := deref(things^, ref); b32(slot) {
-		things.things[slot].texture = texture
+		things.things[slot].sprite = sprite
 	}
 }
