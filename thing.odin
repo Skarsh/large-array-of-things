@@ -16,12 +16,18 @@ Kind :: enum {
 }
 
 Thing :: struct {
-	kind:     Kind,
-	pos:      Vec2,
-	velocity: Vec2,
-	health:   f32,
-	damage:   f32,
-	sprite:   Sprite_ID,
+	kind:             Kind,
+	pos:              Vec2,
+	velocity:         Vec2,
+	health:           f32,
+	damage:           f32,
+	sprite:           Sprite_ID,
+
+	// Child stuff, should these be able to get and set??
+	parent_idx:       int,
+	first_child_idx:  int,
+	next_sibling_idx: int,
+	prev_sibling_idx: int,
 }
 
 Thing_Ref :: struct {
@@ -87,6 +93,36 @@ remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
 
 		things.first_free = slot
 	}
+}
+
+attach_child :: proc(things: ^Things, parent_ref: Thing_Ref, child_ref: Thing_Ref) {
+	parent_idx := deref(things^, parent_ref)
+	parent := &things.things[parent_idx]
+
+	child_idx := deref(things^, child_ref)
+	child := &things.things[child_idx]
+	child.parent_idx = parent_idx
+
+	if parent.first_child_idx == 0 {
+		// First child
+		parent.first_child_idx = child_idx
+		child.next_sibling_idx = child_idx
+		child.prev_sibling_idx = child_idx
+	} else {
+		// Append sibling
+		first_child_idx := parent.first_child_idx
+		first_child := &things.things[first_child_idx]
+
+		last_child_idx := first_child.prev_sibling_idx
+		last_child := &things.things[last_child_idx]
+
+		child.next_sibling_idx = first_child_idx
+		child.prev_sibling_idx = last_child_idx
+
+		last_child.next_sibling_idx = child_idx
+		first_child.prev_sibling_idx = child_idx
+	}
+
 }
 
 find_empty :: proc(things: ^Things) -> int {
@@ -199,6 +235,44 @@ set_sprite :: proc(things: ^Things, ref: Thing_Ref, sprite: Sprite_ID) {
 	}
 }
 
+// ----- Getters for child and parent fields ----- //
+
+get_parent :: proc(things: Things, ref: Thing_Ref) -> Thing_Ref {
+	slot := deref(things, ref)
+	if (things.things[slot].parent_idx == 0) {
+		return {}
+	} else {
+		return make_ref(things, things.things[slot].parent_idx)
+	}
+}
+
+get_first_child :: proc(things: Things, ref: Thing_Ref) -> Thing_Ref {
+	slot := deref(things, ref)
+	if (things.things[slot].first_child_idx == 0) {
+		return {}
+	} else {
+		return make_ref(things, things.things[slot].first_child_idx)
+	}
+}
+
+get_next_sibling :: proc(things: Things, ref: Thing_Ref) -> Thing_Ref {
+	slot := deref(things, ref)
+	if (things.things[slot].next_sibling_idx == 0) {
+		return {}
+	} else {
+		return make_ref(things, things.things[slot].next_sibling_idx)
+	}
+}
+
+get_prev_sibling :: proc(things: Things, ref: Thing_Ref) -> Thing_Ref {
+	slot := deref(things, ref)
+	if (things.things[slot].prev_sibling_idx == 0) {
+		return {}
+	} else {
+		return make_ref(things, things.things[slot].prev_sibling_idx)
+	}
+}
+
 // ----- Tests ----- //
 
 check_thing :: proc(
@@ -256,6 +330,49 @@ check_valid_ref :: proc(
 	testing.expect_value(t, is_valid_ref(things, ref), expected, loc = loc)
 }
 
+check_parent :: proc(
+	t: ^testing.T,
+	things: Things,
+	child: Thing_Ref,
+	expected: Thing_Ref,
+	loc := #caller_location,
+) {
+	parent := get_parent(things, child)
+	testing.expect_value(t, parent, expected, loc = loc)
+}
+
+check_first_child :: proc(
+	t: ^testing.T,
+	things: Things,
+	parent: Thing_Ref,
+	expected: Thing_Ref,
+	loc := #caller_location,
+) {
+	child := get_first_child(things, parent)
+	testing.expect_value(t, child, expected, loc = loc)
+}
+
+check_next_sibling :: proc(
+	t: ^testing.T,
+	things: Things,
+	child: Thing_Ref,
+	expected: Thing_Ref,
+	loc := #caller_location,
+) {
+	next_sibling := get_next_sibling(things, child)
+	testing.expect_value(t, next_sibling, expected, loc = loc)
+}
+
+check_prev_sibling :: proc(
+	t: ^testing.T,
+	things: Things,
+	child: Thing_Ref,
+	expected: Thing_Ref,
+	loc := #caller_location,
+) {
+	prev_sibling := get_prev_sibling(things, child)
+	testing.expect_value(t, prev_sibling, expected, loc = loc)
+}
 
 @(test)
 test_things_lifecycle :: proc(t: ^testing.T) {
@@ -295,4 +412,77 @@ test_removed_thing_ref_is_rejected :: proc(t: ^testing.T) {
 
 	remove_thing(&things, ref)
 	check_valid_ref(t, things, ref, expected = false)
+}
+
+@(test)
+test_attach_single_child_to_parent :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	bullet := add_thing(&things, .Bullet)
+	check_parent(t, things, bullet, expected = {})
+	check_first_child(t, things, player, expected = {})
+	check_next_sibling(t, things, bullet, expected = {})
+	check_prev_sibling(t, things, bullet, expected = {})
+
+	attach_child(&things, player, bullet)
+	check_parent(t, things, bullet, expected = player)
+	check_first_child(t, things, player, expected = bullet)
+	check_next_sibling(t, things, bullet, expected = bullet)
+	check_prev_sibling(t, things, bullet, expected = bullet)
+}
+
+@(test)
+test_attach_two_children_to_parent :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	bullet := add_thing(&things, .Bullet)
+	alien := add_thing(&things, .Alien)
+
+	attach_child(&things, player, bullet)
+	check_parent(t, things, bullet, expected = player)
+
+	attach_child(&things, player, alien)
+	check_parent(t, things, alien, expected = player)
+
+	check_first_child(t, things, player, expected = bullet)
+
+	check_next_sibling(t, things, bullet, expected = alien)
+	check_prev_sibling(t, things, bullet, expected = alien)
+
+	check_next_sibling(t, things, alien, expected = bullet)
+	check_prev_sibling(t, things, alien, expected = bullet)
+}
+
+@(test)
+test_attach_three_children_to_parent :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	bullet := add_thing(&things, .Bullet)
+	alien := add_thing(&things, .Alien)
+	asteroid := add_thing(&things, .Asteroid)
+
+	attach_child(&things, player, bullet)
+	attach_child(&things, player, alien)
+	attach_child(&things, player, asteroid)
+
+	check_parent(t, things, bullet, expected = player)
+	check_parent(t, things, alien, expected = player)
+	check_parent(t, things, asteroid, expected = player)
+
+	check_first_child(t, things, player, expected = bullet)
+
+	check_next_sibling(t, things, bullet, expected = alien)
+	check_prev_sibling(t, things, bullet, expected = asteroid)
+
+	check_next_sibling(t, things, alien, expected = asteroid)
+	check_prev_sibling(t, things, alien, expected = bullet)
+
+	check_next_sibling(t, things, asteroid, expected = bullet)
+	check_prev_sibling(t, things, asteroid, expected = alien)
 }
