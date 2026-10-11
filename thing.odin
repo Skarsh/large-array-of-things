@@ -93,12 +93,18 @@ find_empty :: proc(things: ^Things) -> int {
 	return things.first_free
 }
 
-deref :: proc(things: Things, thing_ref: Thing_Ref) -> int {
-	if thing_ref.idx > 0 &&
-	   thing_ref.idx < MAX_THINGS &&
-	   things.used[thing_ref.idx] &&
-	   things.gen[thing_ref.idx] == thing_ref.gen {
-		return thing_ref.idx
+is_valid_ref :: proc(things: Things, ref: Thing_Ref) -> bool {
+	return(
+		ref.idx > 0 &&
+		ref.idx < MAX_THINGS &&
+		things.used[ref.idx] &&
+		things.gen[ref.idx] == ref.gen \
+	)
+}
+
+deref :: proc(things: Things, ref: Thing_Ref) -> int {
+	if is_valid_ref(things, ref) {
+		return ref.idx
 	} else {
 		assert(false, "Trying to deref a nil instance")
 		return 0
@@ -191,4 +197,102 @@ set_sprite :: proc(things: ^Things, ref: Thing_Ref, sprite: Sprite_ID) {
 	if slot := deref(things^, ref); b32(slot) {
 		things.things[slot].sprite = sprite
 	}
+}
+
+// ----- Tests ----- //
+
+check_thing :: proc(
+	t: ^testing.T,
+	things: Things,
+	ref: Thing_Ref,
+	expected: Thing,
+	loc := #caller_location,
+) {
+	actual := Thing {
+		kind     = get_kind(things, ref),
+		pos      = get_pos(things, ref),
+		velocity = get_velocity(things, ref),
+		health   = get_health(things, ref),
+		damage   = get_damage(things, ref),
+		sprite   = get_sprite(things, ref),
+	}
+	testing.expect_value(t, actual, expected, loc = loc)
+}
+
+check_live_things :: proc(
+	t: ^testing.T,
+	things: ^Things,
+	expected: []Thing_Ref,
+	loc := #caller_location,
+) {
+	counts := make(map[Thing_Ref]int)
+	defer delete(counts)
+
+	iter := make_iterator(things)
+
+	for _ in expected {
+		ref, ok := next_thing(&iter)
+		if !testing.expect(t, ok, "iterator ended early", loc = loc) {
+			return
+		}
+		counts[ref] += 1
+	}
+
+	_, ok := next_thing(&iter)
+	testing.expect(t, !ok, "iterator turned extra things", loc = loc)
+
+	for ref in expected {
+		testing.expect_value(t, counts[ref], 1, loc = loc)
+	}
+}
+
+check_valid_ref :: proc(
+	t: ^testing.T,
+	things: Things,
+	ref: Thing_Ref,
+	expected: bool,
+	loc := #caller_location,
+) {
+	testing.expect_value(t, is_valid_ref(things, ref), expected, loc = loc)
+}
+
+
+@(test)
+test_things_lifecycle :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	check_live_things(t, &things, nil)
+
+	player := add_thing(&things, .Player)
+	alien := add_thing(&things, .Alien)
+	bullet := add_thing(&things, .Bullet)
+	check_live_things(t, &things, {player, alien, bullet})
+
+	set_health(&things, player, 100)
+	set_kind(&things, bullet, .Asteroid)
+
+	// Removing the middle element must preserve its neighbours
+	remove_thing(&things, alien)
+	check_live_things(t, &things, {player, bullet})
+	check_thing(t, things, player, {kind = .Player, health = 100})
+	check_thing(t, things, bullet, {kind = .Asteroid})
+
+	remove_thing(&things, player)
+	check_live_things(t, &things, {bullet})
+
+	remove_thing(&things, bullet)
+	check_live_things(t, &things, nil)
+}
+
+@(test)
+test_removed_thing_ref_is_rejected :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	ref := add_thing(&things, .Player)
+	check_valid_ref(t, things, ref, expected = true)
+
+	remove_thing(&things, ref)
+	check_valid_ref(t, things, ref, expected = false)
 }
