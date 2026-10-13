@@ -151,13 +151,18 @@ make_ref :: proc(things: Things, slot: int) -> Thing_Ref {
 	return {idx = slot, gen = things.gen[slot]}
 }
 
+
+nil_ref :: proc() -> Thing_Ref {
+	return {}
+}
+
 Thing_Iterator :: struct {
-	idx:    int,
 	things: ^Things,
+	idx:    int,
 }
 
 make_iterator :: proc(things: ^Things) -> Thing_Iterator {
-	return {idx = 1, things = things}
+	return {things = things, idx = 1}
 }
 
 next_thing :: proc(iter: ^Thing_Iterator) -> (Thing_Ref, bool) {
@@ -170,8 +175,39 @@ next_thing :: proc(iter: ^Thing_Iterator) -> (Thing_Ref, bool) {
 		}
 	}
 
-	return {}, false
+	return nil_ref(), false
 }
+
+Child_Iterator :: struct {
+	things:          ^Things,
+	idx:             int,
+	first_child_idx: int,
+	has_next:        bool,
+}
+
+make_child_iterator :: proc(things: ^Things, ref: Thing_Ref) -> Child_Iterator {
+	first_child_ref := get_first_child(things^, ref)
+	has_next: bool
+
+	if first_child_ref != nil_ref() {
+		has_next = true
+	}
+
+	return {things, first_child_ref.idx, first_child_ref.idx, has_next}
+}
+
+next_child :: proc(iter: ^Child_Iterator) -> (Thing_Ref, bool) {
+	// The end of the child linked list is when the next child_idx is the same as the first child.
+	// Then we have wrapped around.
+
+	if iter.has_next {
+		return nil_ref(), true
+	} else {
+		return nil_ref(), false
+	}
+
+}
+
 
 // ------- Getters and Setters ------- //
 
@@ -374,6 +410,37 @@ check_prev_sibling :: proc(
 	testing.expect_value(t, prev_sibling, expected, loc = loc)
 }
 
+check_children :: proc(
+	t: ^testing.T,
+	things: ^Things,
+	parent: Thing_Ref,
+	expected: []Thing_Ref,
+	loc := #caller_location,
+) {
+
+	iter := make_child_iterator(things, parent)
+
+	for expected_child in expected {
+		child, ok := next_child(&iter)
+		testing.expect_value(t, ok, true, loc = loc)
+		testing.expect_value(t, child, expected_child, loc = loc)
+	}
+
+	// Call next_child once more to assure that it reports false, meaning it's empty
+	{
+		child, ok := next_child(&iter)
+		testing.expect_value(t, ok, false, loc = loc)
+		testing.expect_value(t, child, nil_ref(), loc = loc)
+	}
+
+	// Call next_child even once more to assure that it keeps reproting false
+	{
+		child, ok := next_child(&iter)
+		testing.expect_value(t, ok, false, loc = loc)
+		testing.expect_value(t, child, nil_ref(), loc = loc)
+	}
+}
+
 @(test)
 test_things_lifecycle :: proc(t: ^testing.T) {
 	things: Things
@@ -421,10 +488,10 @@ test_attach_single_child_to_parent :: proc(t: ^testing.T) {
 
 	player := add_thing(&things, .Player)
 	bullet := add_thing(&things, .Bullet)
-	check_parent(t, things, bullet, expected = {})
-	check_first_child(t, things, player, expected = {})
-	check_next_sibling(t, things, bullet, expected = {})
-	check_prev_sibling(t, things, bullet, expected = {})
+	check_parent(t, things, bullet, expected = nil_ref())
+	check_first_child(t, things, player, expected = nil_ref())
+	check_next_sibling(t, things, bullet, expected = nil_ref())
+	check_prev_sibling(t, things, bullet, expected = nil_ref())
 
 	attach_child(&things, player, bullet)
 	check_parent(t, things, bullet, expected = player)
@@ -485,4 +552,15 @@ test_attach_three_children_to_parent :: proc(t: ^testing.T) {
 
 	check_next_sibling(t, things, asteroid, expected = bullet)
 	check_prev_sibling(t, things, asteroid, expected = alien)
+}
+
+@(test)
+test_iterate_parent_with_no_children :: proc(t: ^testing.T) {
+
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+
+	check_children(t, &things, player, nil)
 }
