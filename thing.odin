@@ -197,15 +197,22 @@ make_child_iterator :: proc(things: ^Things, ref: Thing_Ref) -> Child_Iterator {
 }
 
 next_child :: proc(iter: ^Child_Iterator) -> (Thing_Ref, bool) {
-	// The end of the child linked list is when the next child_idx is the same as the first child.
-	// Then we have wrapped around.
-
 	if iter.has_next {
-		return nil_ref(), true
+		child_ref := make_ref(iter.things^, iter.idx)
+		assert(is_valid_ref(iter.things^, child_ref))
+		sib_idx := get_next_sibling(iter.things^, child_ref).idx
+
+		// Next sibling idx is the same as first child, so we would wrap around on next.
+		if sib_idx == iter.first_child_idx {
+			iter.has_next = false
+		} else {
+			iter.idx = sib_idx
+		}
+
+		return child_ref, true
 	} else {
 		return nil_ref(), false
 	}
-
 }
 
 
@@ -563,4 +570,39 @@ test_iterate_parent_with_no_children :: proc(t: ^testing.T) {
 	player := add_thing(&things, .Player)
 
 	check_children(t, &things, player, nil)
+}
+
+@(test)
+test_iterate_parent_with_one_child :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	bullet := add_thing(&things, .Bullet)
+
+	attach_child(&things, player, bullet)
+	check_children(t, &things, player, {bullet})
+}
+
+@(test)
+test_iterate_with_reversed_attach_order :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	bullet := add_thing(&things, .Bullet)
+	alien := add_thing(&things, .Alien)
+	asteroid := add_thing(&things, .Asteroid)
+
+	// Attach in reverse order of adding
+	attach_child(&things, player, asteroid)
+
+	// Checking a single child, because that covers
+	// the case where the first child is also the last.
+	check_children(t, &things, player, {asteroid})
+
+	attach_child(&things, player, alien)
+	attach_child(&things, player, bullet)
+
+	check_children(t, &things, player, {asteroid, alien, bullet})
 }
