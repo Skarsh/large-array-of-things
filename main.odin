@@ -8,6 +8,8 @@ import rl "vendor:raylib"
 WINDOW_WIDTH :: 800
 WINDOW_HEIGHT :: 600
 
+WEAPON_OFFSET :: Vec2{0, -8}
+
 draw_things :: proc(game: ^Game) {
 	iter := make_iterator(&game.things)
 	for ref in next_thing(&iter) {
@@ -65,6 +67,14 @@ init_game :: proc(game: ^Game) -> bool {
 		set_sprite(&game.things, player_ref, .Player)
 
 		game.player_ref = player_ref
+
+		machine_gun_sprite := sprite_rect(.Machine_Gun)
+		machine_gun_ref := add_thing(&game.things, .Machine_Gun)
+		set_sprite(&game.things, machine_gun_ref, .Machine_Gun)
+
+		attach_child(&game.things, player_ref, machine_gun_ref)
+		set_local_pos(&game.things, machine_gun_ref, WEAPON_OFFSET)
+		game.player_active_weapon_ref = machine_gun_ref
 	}
 
 	// Add initial aliens
@@ -181,8 +191,7 @@ update :: proc(game: ^Game) {
 
 				if rl.CheckCollisionRecs(player_rect, ref_rect) {
 					attach_child(&game.things, player_ref, ref)
-					weapon_offset_y: f32 = -8
-					set_local_pos(&game.things, ref, Vec2{0, weapon_offset_y})
+					set_local_pos(&game.things, ref, WEAPON_OFFSET)
 
 					// TODO(Thomas, not if the player already have an active weapon)
 					game.player_active_weapon_ref = ref

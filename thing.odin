@@ -14,6 +14,7 @@ Kind :: enum {
 	Player,
 
 	// Weapons
+	Machine_Gun,
 	Laser_Cannon,
 	Plasma_Cannon,
 	Missile_Launcher,
