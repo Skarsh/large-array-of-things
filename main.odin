@@ -15,7 +15,7 @@ draw_things :: proc(game: ^Game) {
 		if sprite == .None {
 			continue
 		}
-		pos := get_world_pos(&game.things, ref)
+		pos := get_world_pos(game.things, ref)
 		rl.DrawTextureRec(
 			game.spritesheet,
 			sprite_rect(sprite),
@@ -26,8 +26,10 @@ draw_things :: proc(game: ^Game) {
 }
 
 Game :: struct {
-	things:      Things,
-	spritesheet: rl.Texture2D,
+	things:                   Things,
+	spritesheet:              rl.Texture2D,
+	player_ref:               Thing_Ref,
+	player_active_weapon_ref: Thing_Ref,
 }
 
 init_game :: proc(game: ^Game) -> bool {
@@ -61,6 +63,8 @@ init_game :: proc(game: ^Game) -> bool {
 		)
 		set_health(&game.things, player_ref, 100)
 		set_sprite(&game.things, player_ref, .Player)
+
+		game.player_ref = player_ref
 	}
 
 	// Add initial aliens
@@ -92,23 +96,14 @@ init_game :: proc(game: ^Game) -> bool {
 update :: proc(game: ^Game) {
 
 	// PLayer
-	player_ref: Thing_Ref
-	{
-		iter := make_iterator(&game.things)
-		for ref in next_thing(&iter) {
-			kind := get_kind(game.things, ref)
-			if kind == .Player {
-				player_ref = ref
-			}
-		}
-	}
+	player_ref := game.player_ref
 
 	// Input
 	if rl.IsKeyPressed(.SPACE) {
 
 		player_sprite := sprite_rect(get_sprite(game.things, player_ref))
 		bullet_sprite := sprite_rect(.Bullet)
-		player_pos := get_local_pos(game.things, player_ref)
+		player_pos := get_world_pos(game.things, player_ref)
 
 		bullet_ref := add_thing(&game.things, .Bullet)
 		set_local_pos(
@@ -144,7 +139,7 @@ update :: proc(game: ^Game) {
 			velocity := get_velocity(game.things, ref)
 
 			if linalg.length(velocity) > 0 {
-				pos := get_local_pos(game.things, ref)
+				pos := get_world_pos(game.things, ref)
 				new_pos := pos + velocity * rl.GetFrameTime()
 
 				if new_pos.x > 0 &&
@@ -175,7 +170,7 @@ update :: proc(game: ^Game) {
 					player_sprite_size.y,
 				}
 
-				ref_pos := get_world_pos(&game.things, ref)
+				ref_pos := get_world_pos(game.things, ref)
 				ref_sprite_size := sprite_size(get_sprite(game.things, ref))
 				ref_rect := rl.Rectangle {
 					ref_pos.x,
@@ -188,6 +183,9 @@ update :: proc(game: ^Game) {
 					attach_child(&game.things, player_ref, ref)
 					weapon_offset_y: f32 = -8
 					set_local_pos(&game.things, ref, Vec2{0, weapon_offset_y})
+
+					// TODO(Thomas, not if the player already have an active weapon)
+					game.player_active_weapon_ref = ref
 				}
 			}
 
@@ -197,8 +195,6 @@ update :: proc(game: ^Game) {
 			}
 		}
 	}
-
-
 }
 
 main :: proc() {
