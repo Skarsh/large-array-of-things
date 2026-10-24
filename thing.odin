@@ -248,8 +248,28 @@ set_local_pos :: proc(things: ^Things, ref: Thing_Ref, pos: Vec2) {
 	}
 }
 
+// Traverses the parent hierarchy of the passed in ref,
+// summing up all the local_positions up to and including the top parent.
+// The top parent's local_position is its world_pos.
 get_world_pos :: proc(things: ^Things, ref: Thing_Ref) -> Vec2 {
-	return {}
+
+	world_offset: Vec2
+	new_ref := ref
+	for {
+
+		parent := get_parent(things^, new_ref)
+		if parent == nil_ref() {
+			break
+		}
+
+		parent_pos := get_local_pos(things^, parent)
+		world_offset += parent_pos
+
+		new_ref = parent
+	}
+
+	ref_pos := get_local_pos(things^, ref)
+	return ref_pos + world_offset
 }
 
 get_velocity :: proc(things: Things, ref: Thing_Ref) -> Vec2 {

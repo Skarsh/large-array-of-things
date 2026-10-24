@@ -15,7 +15,7 @@ draw_things :: proc(game: ^Game) {
 		if sprite == .None {
 			continue
 		}
-		pos := get_local_pos(game.things, ref)
+		pos := get_world_pos(&game.things, ref)
 		rl.DrawTextureRec(
 			game.spritesheet,
 			sprite_rect(sprite),
@@ -49,6 +49,7 @@ init_game :: proc(game: ^Game) -> bool {
 	}
 	rl.SetTextureFilter(game.spritesheet, .POINT)
 
+
 	// Add player
 	{
 		player_sprite := sprite_rect(.Player)
@@ -79,7 +80,6 @@ init_game :: proc(game: ^Game) -> bool {
 	}
 
 	// Add new weapon on the left side
-
 	{
 		laser_cannon_ref := add_thing(&game.things, .Laser_Cannon)
 		set_local_pos(&game.things, laser_cannon_ref, {100, f32(WINDOW_HEIGHT) - 100})
@@ -159,7 +159,7 @@ update :: proc(game: ^Game) {
 			}
 
 			// Check collisions
-			// Check if player collids / intersects with a weapon, then it will pick it up
+			// Check if player collides / intersects with a weapon, then it will pick it up
 			ref_kind := get_kind(game.things, ref)
 			ref_is_weapon :=
 				ref_kind == .Laser_Cannon ||
@@ -175,7 +175,7 @@ update :: proc(game: ^Game) {
 					player_sprite_size.y,
 				}
 
-				ref_pos := get_local_pos(game.things, ref)
+				ref_pos := get_world_pos(&game.things, ref)
 				ref_sprite_size := sprite_size(get_sprite(game.things, ref))
 				ref_rect := rl.Rectangle {
 					ref_pos.x,
@@ -184,25 +184,11 @@ update :: proc(game: ^Game) {
 					ref_sprite_size.y,
 				}
 
-
 				if rl.CheckCollisionRecs(player_rect, ref_rect) {
-
-					// The player now equips the weapon
-					// This means that it has to be attached to the player ref.
-					// The weapon thing should not exist anymore and rather be in the
-					// "weapon inventory" of the player. So the thing needs to exist,
-					// but not in the world as it does now.
-					// What are options here now?
-					// Attach the thing to the player, move it off screen and make it
-					// not visible?
-					// Or is it better to remove the thing, and add a new thing off screen
-					// that is the same, but is also attached to the player?
-
-					rl.DrawRectangleRec(ref_rect, rl.LIME)
-
 					attach_child(&game.things, player_ref, ref)
+					weapon_offset_y: f32 = -8
+					set_local_pos(&game.things, ref, Vec2{0, weapon_offset_y})
 				}
-
 			}
 
 			// NOTE(Thomas): Important that removing a thing that should be removed happens at the end.
