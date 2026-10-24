@@ -5,7 +5,7 @@ import rl "vendor:raylib"
 SPRITE_SIZE :: 32
 BULLET_WIDTH :: 6
 BULLET_HEIGHT :: 12
-SPRITESHEET_COLUMNS :: 3
+SPRITESHEET_COLUMNS :: 5
 SPRITE_COUNT :: int(Sprite_ID.Missile)
 SPRITESHEET_ROWS :: (SPRITE_COUNT + SPRITESHEET_COLUMNS - 1) / SPRITESHEET_COLUMNS
 
@@ -13,11 +13,12 @@ SPRITESHEET_ROWS :: (SPRITE_COUNT + SPRITESHEET_COLUMNS - 1) / SPRITESHEET_COLUM
 Sprite_ID :: enum (int) {
 	None = 0,
 	Player,
-	Bullet,
-	Alien,
+	Machine_Gun,
 	Laser_Cannon,
 	Plasma_Cannon,
 	Missile_Launcher,
+	Alien,
+	Bullet,
 	Laser_Bolt,
 	Plasma_Orb,
 	Missile,

@@ -3,13 +3,12 @@
 -- Edit source/spritesheet.aseprite, then run this to export the runtime PNG.
 -- Add --script-param check=true before --script to verify without writing.
 local root = app.params.root or "."
-local size, columns = 32, 3
+local size, columns = 32, 5
 
 -- Row order matches Sprite_ID in sprites.odin (excluding None).
 local entries = {
-  "player_ship", "bullet", "alien",
-  "laser_cannon", "plasma_cannon", "missile_launcher",
-  "laser_bolt", "plasma_orb", "missile",
+  "player_ship", "machine_gun", "laser_cannon", "plasma_cannon", "missile_launcher",
+  "alien", "bullet", "laser_bolt", "plasma_orb", "missile",
 }
 
 local sprite = Sprite { fromFile = root .. "/data/sprites/source/spritesheet.aseprite" }
@@ -39,7 +38,7 @@ if app.params.check == "true" then
     assert(exported:getPixel(x, y) == sheet:getPixel(x, y),
       "Spritesheet PNG is stale; run the export script")
   end end
-  print("Verified spritesheet PNG and all nine named slices")
+  print("Verified spritesheet PNG and all " .. #entries .. " named slices")
 else
   sheet:saveAs(output)
   print("Exported " .. sprite.width .. "x" .. sprite.height .. " sheet with " .. #entries .. " sprites")
