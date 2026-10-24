@@ -10,8 +10,8 @@ SPRITE_COUNT :: int(Sprite_ID.Missile)
 SPRITESHEET_ROWS :: (SPRITE_COUNT + SPRITESHEET_COLUMNS - 1) / SPRITESHEET_COLUMNS
 
 // Row order matches scripts/build_spritesheet.lua.
-Sprite_ID :: enum {
-	None,
+Sprite_ID :: enum (int) {
+	None = 0,
 	Player,
 	Bullet,
 	Alien,
@@ -21,6 +21,15 @@ Sprite_ID :: enum {
 	Laser_Bolt,
 	Plasma_Orb,
 	Missile,
+}
+
+sprite_size :: proc(sprite: Sprite_ID) -> Vec2 {
+	assert(sprite != .None, "Cannot get size of unset sprite")
+	if sprite == .Bullet {
+		return {BULLET_WIDTH, BULLET_HEIGHT}
+	} else {
+		return {SPRITE_SIZE, SPRITE_SIZE}
+	}
 }
 
 sprite_rect :: proc(sprite: Sprite_ID) -> rl.Rectangle {

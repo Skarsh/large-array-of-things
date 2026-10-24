@@ -12,7 +12,17 @@ Kind :: enum {
 	Asteroid,
 	Alien,
 	Player,
+
+	// Weapons
+	Laser_Cannon,
+	Plasma_Cannon,
+	Missile_Launcher,
+
+	// Projectiles
 	Bullet,
+	Laser_Bolt,
+	Plasma_Orb,
+	Missle,
 }
 
 Thing :: struct {
@@ -228,14 +238,18 @@ set_kind :: proc(things: ^Things, ref: Thing_Ref, kind: Kind) {
 	}
 }
 
-get_pos :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
+get_local_pos :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
 	return things.things[deref(things, ref)].pos
 }
 
-set_pos :: proc(things: ^Things, ref: Thing_Ref, pos: Vec2) {
+set_local_pos :: proc(things: ^Things, ref: Thing_Ref, pos: Vec2) {
 	if slot := deref(things^, ref); b32(slot) {
 		things.things[slot].pos = pos
 	}
+}
+
+get_world_pos :: proc(things: ^Things, ref: Thing_Ref) -> Vec2 {
+	return {}
 }
 
 get_velocity :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
@@ -327,7 +341,7 @@ check_thing :: proc(
 ) {
 	actual := Thing {
 		kind     = get_kind(things, ref),
-		pos      = get_pos(things, ref),
+		pos      = get_local_pos(things, ref),
 		velocity = get_velocity(things, ref),
 		health   = get_health(things, ref),
 		damage   = get_damage(things, ref),
