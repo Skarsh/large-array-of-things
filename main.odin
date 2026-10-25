@@ -37,6 +37,19 @@ Game :: struct {
 	player_active_weapon_ref: Thing_Ref,
 }
 
+
+switch_weapon :: proc(game: ^Game, weapon_ref: Thing_Ref) {
+	weapon_ref_parent := get_parent(game.things, weapon_ref)
+
+	// The player is the parent, so this is a valid ref
+	assert(weapon_ref_parent == game.player_ref)
+
+	add_flag(&game.things, game.player_active_weapon_ref, .Hidden)
+	game.player_active_weapon_ref = weapon_ref
+	remove_flag(&game.things, game.player_active_weapon_ref, .Hidden)
+
+}
+
 init_game :: proc(game: ^Game) -> bool {
 	things := Things{}
 	init_things(&things)
@@ -115,22 +128,58 @@ update :: proc(game: ^Game) {
 	// Input
 	if rl.IsKeyPressed(.SPACE) {
 
+		weapon_kind := get_kind(game.things, game.player_active_weapon_ref)
+
+		projectile_sprite_rect: rl.Rectangle
+		projectile_ref: Thing_Ref
+		projectile_sprite: Sprite_ID
+		projectile_velocity: Vec2
+		projectile_damage: f32
+
+		// TODO(Thomas): All of this could be table driven I think
+		#partial switch weapon_kind {
+		case .Machine_Gun:
+			projectile_sprite_rect = sprite_rect(.Bullet)
+			projectile_ref = add_thing(&game.things, .Bullet)
+			projectile_sprite = .Bullet
+			projectile_velocity = BULLET_VELOCITY
+			projectile_damage = BULLET_DAMAGE
+		case .Laser_Cannon:
+			projectile_sprite_rect = sprite_rect(.Laser_Bolt)
+			projectile_ref = add_thing(&game.things, .Laser_Bolt)
+			projectile_sprite = .Laser_Bolt
+			projectile_velocity = LASER_VELOCITY
+			projectile_damage = LASER_DAMAGE
+		case .Plasma_Cannon:
+			projectile_sprite_rect = sprite_rect(.Plasma_Orb)
+			projectile_ref = add_thing(&game.things, .Plasma_Orb)
+			projectile_sprite = .Plasma_Orb
+			projectile_velocity = PLASMA_VELOCITY
+			projectile_damage = PLASMA_DAMAGE
+		case .Missile_Launcher:
+			projectile_sprite_rect = sprite_rect(.Missile)
+			projectile_ref = add_thing(&game.things, .Missile)
+			projectile_sprite = .Missile
+			projectile_velocity = MISSILE_VELOCITY
+			projectile_damage = MISSILE_DAMAGE
+		case:
+			panic("illegal weapon kind")
+		}
+
 		player_sprite := sprite_rect(get_sprite(game.things, player_ref))
-		bullet_sprite := sprite_rect(.Bullet)
 		player_pos := get_world_pos(game.things, player_ref)
 
-		bullet_ref := add_thing(&game.things, .Bullet)
 		set_local_pos(
 			&game.things,
-			bullet_ref,
+			projectile_ref,
 			{
-				player_pos.x + (player_sprite.width - bullet_sprite.width) / 2,
-				player_pos.y - bullet_sprite.height - 2,
+				player_pos.x + (player_sprite.width - projectile_sprite_rect.width) / 2,
+				player_pos.y - projectile_sprite_rect.height - 2,
 			},
 		)
-		set_velocity(&game.things, bullet_ref, {0, -600})
-		set_damage(&game.things, bullet_ref, 10)
-		set_sprite(&game.things, bullet_ref, .Bullet)
+		set_velocity(&game.things, projectile_ref, projectile_velocity)
+		set_damage(&game.things, projectile_ref, 10)
+		set_sprite(&game.things, projectile_ref, projectile_sprite)
 	}
 
 	if rl.IsKeyDown(.LEFT) {
@@ -199,11 +248,8 @@ update :: proc(game: ^Game) {
 				parent_ref := get_parent(game.things, ref)
 				if rl.CheckCollisionRecs(player_rect, ref_rect) && parent_ref != player_ref {
 					attach_child(&game.things, player_ref, ref)
-
 					set_local_pos(&game.things, ref, WEAPON_OFFSET)
-
-					add_flag(&game.things, game.player_active_weapon_ref, .Hidden)
-					game.player_active_weapon_ref = ref
+					switch_weapon(game, ref)
 				}
 			}
 
