@@ -7,6 +7,12 @@ MAX_THINGS :: 16
 
 Vec2 :: [2]f32
 
+Flag :: enum {
+	Hidden,
+}
+
+Flag_Set :: bit_set[Flag]
+
 Kind :: enum {
 	Nil,
 	Asteroid,
@@ -33,9 +39,7 @@ Thing :: struct {
 	health:           f32,
 	damage:           f32,
 	sprite:           Sprite_ID,
-
-	// If no weapon active, this is a nil_ref
-	active_weapon:    Thing_Ref,
+	flags:            Flag_Set,
 
 	// Child stuff, should these be able to get and set??
 	parent_idx:       int,
@@ -313,6 +317,28 @@ get_sprite :: proc(things: Things, ref: Thing_Ref) -> Sprite_ID {
 set_sprite :: proc(things: ^Things, ref: Thing_Ref, sprite: Sprite_ID) {
 	if slot := deref(things^, ref); b32(slot) {
 		things.things[slot].sprite = sprite
+	}
+}
+
+get_flags :: proc(things: Things, ref: Thing_Ref) -> Flag_Set {
+	return things.things[deref(things, ref)].flags
+}
+
+set_flags :: proc(things: ^Things, ref: Thing_Ref, flags: Flag_Set) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].flags = flags
+	}
+}
+
+add_flag :: proc(things: ^Things, ref: Thing_Ref, flag: Flag) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].flags += {flag}
+	}
+}
+
+remove_flag :: proc(things: ^Things, ref: Thing_Ref, flag: Flag) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].flags -= {flag}
 	}
 }
 

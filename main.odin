@@ -18,12 +18,15 @@ draw_things :: proc(game: ^Game) {
 			continue
 		}
 		pos := get_world_pos(game.things, ref)
-		rl.DrawTextureRec(
-			game.spritesheet,
-			sprite_rect(sprite),
-			{f32(i32(pos.x)), f32(i32(pos.y))},
-			rl.WHITE,
-		)
+		flags := get_flags(game.things, ref)
+		if .Hidden not_in flags {
+			rl.DrawTextureRec(
+				game.spritesheet,
+				sprite_rect(sprite),
+				{f32(i32(pos.x)), f32(i32(pos.y))},
+				rl.WHITE,
+			)
+		}
 	}
 }
 
@@ -68,6 +71,7 @@ init_game :: proc(game: ^Game) -> bool {
 
 		game.player_ref = player_ref
 
+		// Machine gun
 		machine_gun_sprite := sprite_rect(.Machine_Gun)
 		machine_gun_ref := add_thing(&game.things, .Machine_Gun)
 		set_sprite(&game.things, machine_gun_ref, .Machine_Gun)
@@ -189,11 +193,16 @@ update :: proc(game: ^Game) {
 					ref_sprite_size.y,
 				}
 
-				if rl.CheckCollisionRecs(player_rect, ref_rect) {
+				// Do not check collision if the thing is already a child,
+				// meaning player_ref is already the parent.
+				// Specifically weapon pick up collision check
+				parent_ref := get_parent(game.things, ref)
+				if rl.CheckCollisionRecs(player_rect, ref_rect) && parent_ref != player_ref {
 					attach_child(&game.things, player_ref, ref)
+
 					set_local_pos(&game.things, ref, WEAPON_OFFSET)
 
-					// TODO(Thomas, not if the player already have an active weapon)
+					add_flag(&game.things, game.player_active_weapon_ref, .Hidden)
 					game.player_active_weapon_ref = ref
 				}
 			}
