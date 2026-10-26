@@ -178,7 +178,7 @@ update :: proc(game: ^Game) {
 			},
 		)
 		set_velocity(&game.things, projectile_ref, projectile_velocity)
-		set_damage(&game.things, projectile_ref, 10)
+		set_damage(&game.things, projectile_ref, projectile_damage)
 		set_sprite(&game.things, projectile_ref, projectile_sprite)
 	}
 
