@@ -114,6 +114,36 @@ add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
 
 remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
 	if slot := deref(things^, thing_ref); b32(slot) {
+
+		current_idx := deref(things^, thing_ref)
+		current := things.things[current_idx]
+
+		// Only child
+		if current_idx == current.prev_sibling_idx &&
+		   current_idx == current.next_sibling_idx &&
+		   current.prev_sibling_idx == current.next_sibling_idx {
+
+			if current.parent_idx != 0 {
+				// Rewire the first_child_idx of the parent to
+				parent := &things.things[current.parent_idx]
+				parent.first_child_idx = 0
+			}
+
+		} else {
+			// CONTINUE HERE
+			// Unattached removal still writes to slot 0.
+			// Removing the first of several children leaves the parent's first_child_idx stale.
+			// rewiring prev's next to be current's next
+			prev_sib := &things.things[current.prev_sibling_idx]
+			prev_sib.next_sibling_idx = current.next_sibling_idx
+
+			// rwiring next's prev to be current's prev
+			next_sib := &things.things[current.next_sibling_idx]
+			next_sib.prev_sibling_idx = current.prev_sibling_idx
+		}
+
+
+		// Removal
 		things.used[slot] = false
 
 		if b32(things.first_free) {
@@ -121,6 +151,7 @@ remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
 		}
 
 		things.first_free = slot
+
 	}
 }
 
@@ -680,4 +711,41 @@ test_iterate_with_reversed_attach_order :: proc(t: ^testing.T) {
 	attach_child(&things, player, bullet)
 
 	check_children(t, &things, player, {asteroid, alien, bullet})
+}
+
+@(test)
+test_remove_second_child :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	player := add_thing(&things, .Player)
+	machine_gun := add_thing(&things, .Machine_Gun)
+	laser_cannon := add_thing(&things, .Laser_Cannon)
+
+	attach_child(&things, player, machine_gun)
+	check_children(t, &things, player, {machine_gun})
+
+	attach_child(&things, player, laser_cannon)
+	check_children(t, &things, player, {machine_gun, laser_cannon})
+
+	remove_thing(&things, laser_cannon)
+
+	check_children(t, &things, player, {machine_gun})
+}
+
+@(test)
+test_remove_without_changing_nil_thing :: proc(t: ^testing.T) {
+	things: Things
+	init_things(&things)
+
+	// Nonzero markers make accidental writes to the reserved slot visible.
+	slot_0 := &things.things[0]
+	slot_0.prev_sibling_idx = 7
+	slot_0.next_sibling_idx = 11
+
+	player := add_thing(&things, .Player)
+	remove_thing(&things, player)
+
+	testing.expect_value(t, slot_0.prev_sibling_idx, 7)
+	testing.expect_value(t, slot_0.next_sibling_idx, 11)
 }
