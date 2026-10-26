@@ -10,6 +10,14 @@ WINDOW_HEIGHT :: 600
 
 WEAPON_OFFSET :: Vec2{0, -8}
 
+Weapon_Kind :: enum {
+	Machine_Gun,
+	Laser_Cannon,
+	Plasma_Cannon,
+	Missile_Launcher,
+	Count,
+}
+
 draw_things :: proc(game: ^Game) {
 	iter := make_iterator(&game.things)
 	for ref in next_thing(&iter) {
@@ -35,6 +43,7 @@ Game :: struct {
 	spritesheet:              rl.Texture2D,
 	player_ref:               Thing_Ref,
 	player_active_weapon_ref: Thing_Ref,
+	weapon_sounds:            [Weapon_Kind.Count]rl.Sound,
 }
 
 
@@ -47,7 +56,6 @@ switch_weapon :: proc(game: ^Game, weapon_ref: Thing_Ref) {
 	add_flag(&game.things, game.player_active_weapon_ref, .Hidden)
 	game.player_active_weapon_ref = weapon_ref
 	remove_flag(&game.things, game.player_active_weapon_ref, .Hidden)
-
 }
 
 init_game :: proc(game: ^Game) -> bool {
@@ -55,6 +63,8 @@ init_game :: proc(game: ^Game) -> bool {
 	init_things(&things)
 	game.things = things
 
+
+	// Textures
 	game.spritesheet = rl.LoadTexture("./data/sprites/spritesheet.png")
 	if !rl.IsTextureValid(game.spritesheet) {
 		fmt.eprintln("Failed to load data/sprites/spritesheet.png")
@@ -68,6 +78,21 @@ init_game :: proc(game: ^Game) -> bool {
 		return false
 	}
 	rl.SetTextureFilter(game.spritesheet, .POINT)
+
+
+	// Sounds
+	game.weapon_sounds[Weapon_Kind.Machine_Gun] = rl.LoadSound(
+		"data/sounds/weapons/machine_gun_fire.wav",
+	)
+	game.weapon_sounds[Weapon_Kind.Laser_Cannon] = rl.LoadSound(
+		"data/sounds/weapons/laser_cannon_fire.wav",
+	)
+	game.weapon_sounds[Weapon_Kind.Plasma_Cannon] = rl.LoadSound(
+		"data/sounds/weapons/plasma_cannon_fire.wav",
+	)
+	game.weapon_sounds[Weapon_Kind.Missile_Launcher] = rl.LoadSound(
+		"data/sounds/weapons/missile_launcher_fire.wav",
+	)
 
 
 	// Add player
@@ -144,24 +169,36 @@ update :: proc(game: ^Game) {
 			projectile_sprite = .Bullet
 			projectile_velocity = BULLET_VELOCITY
 			projectile_damage = BULLET_DAMAGE
+
+			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Machine_Gun])
+
 		case .Laser_Cannon:
 			projectile_sprite_rect = sprite_rect(.Laser_Bolt)
 			projectile_ref = add_thing(&game.things, .Laser_Bolt)
 			projectile_sprite = .Laser_Bolt
 			projectile_velocity = LASER_VELOCITY
 			projectile_damage = LASER_DAMAGE
+
+			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Laser_Cannon])
+
 		case .Plasma_Cannon:
 			projectile_sprite_rect = sprite_rect(.Plasma_Orb)
 			projectile_ref = add_thing(&game.things, .Plasma_Orb)
 			projectile_sprite = .Plasma_Orb
 			projectile_velocity = PLASMA_VELOCITY
 			projectile_damage = PLASMA_DAMAGE
+
+			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Plasma_Cannon])
+
 		case .Missile_Launcher:
 			projectile_sprite_rect = sprite_rect(.Missile)
 			projectile_ref = add_thing(&game.things, .Missile)
 			projectile_sprite = .Missile
 			projectile_velocity = MISSILE_VELOCITY
 			projectile_damage = MISSILE_DAMAGE
+
+			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Missile_Launcher])
+
 		case:
 			panic("illegal weapon kind")
 		}
@@ -268,6 +305,8 @@ main :: proc() {
 
 	rl.SetWindowState({.WINDOW_RESIZABLE})
 	rl.SetTargetFPS(60)
+
+	rl.InitAudioDevice()
 
 	game: Game
 	if !init_game(&game) {
