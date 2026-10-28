@@ -112,36 +112,43 @@ add_thing :: proc(things: ^Things, kind: Kind) -> Thing_Ref {
 	}
 }
 
+// TODO(Thomas): What to do if we remove a parent with children, should we then remove
+// the children too?
 remove_thing :: proc(things: ^Things, thing_ref: Thing_Ref) {
 	if slot := deref(things^, thing_ref); b32(slot) {
 
 		current_idx := deref(things^, thing_ref)
 		current := things.things[current_idx]
 
-		// Only child
-		if current_idx == current.prev_sibling_idx &&
-		   current_idx == current.next_sibling_idx &&
-		   current.prev_sibling_idx == current.next_sibling_idx {
+		// Check if this is a child. We know it's a child if it has both sibling links non zero
+		is_child := current.next_sibling_idx != 0 && current.prev_sibling_idx != 0
+		if is_child {
+			parent := &things.things[current.parent_idx]
 
-			if current.parent_idx != 0 {
-				// Rewire the first_child_idx of the parent to
-				parent := &things.things[current.parent_idx]
+			// If only child
+			if current_idx == current.prev_sibling_idx &&
+			   current_idx == current.next_sibling_idx &&
+			   current.prev_sibling_idx == current.next_sibling_idx {
+
 				parent.first_child_idx = 0
+
+			} else {
+
+				// We know this is the first child, if the first_child_idx of the parent
+				// is the same as the current_idx
+				if parent.first_child_idx == current_idx {
+					parent.first_child_idx = current.next_sibling_idx
+				}
+
+				// rewiring prev's next to be current's next
+				prev_sib := &things.things[current.prev_sibling_idx]
+				prev_sib.next_sibling_idx = current.next_sibling_idx
+
+				// rewiring next's prev to be current's prev
+				next_sib := &things.things[current.next_sibling_idx]
+				next_sib.prev_sibling_idx = current.prev_sibling_idx
 			}
-
-		} else {
-			// CONTINUE HERE
-			// Unattached removal still writes to slot 0.
-			// Removing the first of several children leaves the parent's first_child_idx stale.
-			// rewiring prev's next to be current's next
-			prev_sib := &things.things[current.prev_sibling_idx]
-			prev_sib.next_sibling_idx = current.next_sibling_idx
-
-			// rwiring next's prev to be current's prev
-			next_sib := &things.things[current.next_sibling_idx]
-			next_sib.prev_sibling_idx = current.prev_sibling_idx
 		}
-
 
 		// Removal
 		things.used[slot] = false
