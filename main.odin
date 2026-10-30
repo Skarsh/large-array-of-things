@@ -10,13 +10,7 @@ WINDOW_HEIGHT :: 600
 
 WEAPON_OFFSET :: Vec2{0, -8}
 
-Weapon_Kind :: enum {
-	Machine_Gun,
-	Laser_Cannon,
-	Plasma_Cannon,
-	Missile_Launcher,
-	Count,
-}
+MAX_SOUNDS :: 16
 
 draw_things :: proc(game: ^Game) {
 	iter := make_iterator(&game.things)
@@ -38,14 +32,31 @@ draw_things :: proc(game: ^Game) {
 	}
 }
 
+Weapon_Def :: struct {
+	sprite_id: Sprite_ID,
+	sound_idx: int,
+}
+
+weapon_defs: [Kind]Weapon_Def = #partial {
+	.Machine_Gun = {sprite_id = .Machine_Gun, sound_idx = 0},
+	.Laser_Cannon = {sprite_id = .Laser_Cannon, sound_idx = 1},
+	.Plasma_Cannon = {sprite_id = .Plasma_Cannon, sound_idx = 2},
+	.Missile_Launcher = {sprite_id = .Missile_Launcher, sound_idx = 3},
+}
+
 Game :: struct {
 	things:                   Things,
 	spritesheet:              rl.Texture2D,
 	player_ref:               Thing_Ref,
 	player_active_weapon_ref: Thing_Ref,
-	weapon_sounds:            [Weapon_Kind.Count]rl.Sound,
+	weapon_sounds:            [MAX_SOUNDS]rl.Sound,
 }
 
+cycle_weapon :: proc(game: ^Game) {
+	// Next weapon is just the next sibling of the current active weapon
+	next_sib := get_next_sibling(game.things, game.player_active_weapon_ref)
+	switch_weapon(game, next_sib)
+}
 
 switch_weapon :: proc(game: ^Game, weapon_ref: Thing_Ref) {
 	weapon_ref_parent := get_parent(game.things, weapon_ref)
@@ -56,6 +67,30 @@ switch_weapon :: proc(game: ^Game, weapon_ref: Thing_Ref) {
 	add_flag(&game.things, game.player_active_weapon_ref, .Hidden)
 	game.player_active_weapon_ref = weapon_ref
 	remove_flag(&game.things, game.player_active_weapon_ref, .Hidden)
+}
+
+spawn_alien :: proc(game: ^Game, pos: Vec2) {
+	alien_ref := add_thing(&game.things, .Alien)
+	set_local_pos(&game.things, alien_ref, pos)
+	set_health(&game.things, alien_ref, 100)
+	set_sprite(&game.things, alien_ref, .Alien)
+}
+
+spawn_weapon :: proc(game: ^Game, kind: Kind, pos: Vec2) {
+	assert(is_weapon(kind))
+
+	weapon_ref := add_thing(&game.things, kind)
+	set_local_pos(&game.things, weapon_ref, pos)
+	set_sprite(&game.things, weapon_ref, weapon_defs[kind].sprite_id)
+}
+
+is_weapon :: proc(kind: Kind) -> bool {
+	return(
+		kind == .Machine_Gun ||
+		kind == .Laser_Cannon ||
+		kind == .Plasma_Cannon ||
+		kind == .Missile_Launcher \
+	)
 }
 
 init_game :: proc(game: ^Game) -> bool {
@@ -81,16 +116,16 @@ init_game :: proc(game: ^Game) -> bool {
 
 
 	// Sounds
-	game.weapon_sounds[Weapon_Kind.Machine_Gun] = rl.LoadSound(
+	game.weapon_sounds[weapon_defs[.Machine_Gun].sound_idx] = rl.LoadSound(
 		"data/sounds/weapons/machine_gun_fire.wav",
 	)
-	game.weapon_sounds[Weapon_Kind.Laser_Cannon] = rl.LoadSound(
+	game.weapon_sounds[weapon_defs[.Laser_Cannon].sound_idx] = rl.LoadSound(
 		"data/sounds/weapons/laser_cannon_fire.wav",
 	)
-	game.weapon_sounds[Weapon_Kind.Plasma_Cannon] = rl.LoadSound(
+	game.weapon_sounds[weapon_defs[.Plasma_Cannon].sound_idx] = rl.LoadSound(
 		"data/sounds/weapons/plasma_cannon_fire.wav",
 	)
-	game.weapon_sounds[Weapon_Kind.Missile_Launcher] = rl.LoadSound(
+	game.weapon_sounds[weapon_defs[.Missile_Launcher].sound_idx] = rl.LoadSound(
 		"data/sounds/weapons/missile_launcher_fire.wav",
 	)
 
@@ -121,26 +156,11 @@ init_game :: proc(game: ^Game) -> bool {
 
 	// Add initial aliens
 	// Only 2 aliens to begin with
-	{
-		alien_ref := add_thing(&game.things, .Alien)
-		set_local_pos(&game.things, alien_ref, {WINDOW_WIDTH / 4, 100})
-		set_health(&game.things, alien_ref, 100)
-		set_sprite(&game.things, alien_ref, .Alien)
-	}
-
-	{
-		alien_ref := add_thing(&game.things, .Alien)
-		set_local_pos(&game.things, alien_ref, {3 * (WINDOW_WIDTH / 4), 100})
-		set_health(&game.things, alien_ref, 100)
-		set_sprite(&game.things, alien_ref, .Alien)
-	}
+	spawn_alien(game, {WINDOW_WIDTH / 4, 100})
+	spawn_alien(game, {3 * (WINDOW_WIDTH / 4), 100})
 
 	// Add new weapon on the left side
-	{
-		laser_cannon_ref := add_thing(&game.things, .Laser_Cannon)
-		set_local_pos(&game.things, laser_cannon_ref, {100, f32(WINDOW_HEIGHT) - 100})
-		set_sprite(&game.things, laser_cannon_ref, .Laser_Cannon)
-	}
+	spawn_weapon(game, .Laser_Cannon, {100, f32(WINDOW_HEIGHT) - 100})
 
 	return true
 }
@@ -170,7 +190,7 @@ update :: proc(game: ^Game) {
 			projectile_velocity = BULLET_VELOCITY
 			projectile_damage = BULLET_DAMAGE
 
-			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Machine_Gun])
+			rl.PlaySound(game.weapon_sounds[weapon_defs[.Machine_Gun].sound_idx])
 
 		case .Laser_Cannon:
 			projectile_sprite_rect = sprite_rect(.Laser_Bolt)
@@ -179,7 +199,7 @@ update :: proc(game: ^Game) {
 			projectile_velocity = LASER_VELOCITY
 			projectile_damage = LASER_DAMAGE
 
-			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Laser_Cannon])
+			rl.PlaySound(game.weapon_sounds[weapon_defs[.Laser_Cannon].sound_idx])
 
 		case .Plasma_Cannon:
 			projectile_sprite_rect = sprite_rect(.Plasma_Orb)
@@ -188,7 +208,7 @@ update :: proc(game: ^Game) {
 			projectile_velocity = PLASMA_VELOCITY
 			projectile_damage = PLASMA_DAMAGE
 
-			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Plasma_Cannon])
+			rl.PlaySound(game.weapon_sounds[weapon_defs[.Plasma_Cannon].sound_idx])
 
 		case .Missile_Launcher:
 			projectile_sprite_rect = sprite_rect(.Missile)
@@ -197,7 +217,7 @@ update :: proc(game: ^Game) {
 			projectile_velocity = MISSILE_VELOCITY
 			projectile_damage = MISSILE_DAMAGE
 
-			rl.PlaySound(game.weapon_sounds[Weapon_Kind.Missile_Launcher])
+			rl.PlaySound(game.weapon_sounds[weapon_defs[.Missile_Launcher].sound_idx])
 
 		case:
 			panic("illegal weapon kind")
@@ -217,6 +237,10 @@ update :: proc(game: ^Game) {
 		set_velocity(&game.things, projectile_ref, projectile_velocity)
 		set_damage(&game.things, projectile_ref, projectile_damage)
 		set_sprite(&game.things, projectile_ref, projectile_sprite)
+	}
+
+	if rl.IsKeyPressed(.F) {
+		cycle_weapon(game)
 	}
 
 	if rl.IsKeyDown(.LEFT) {
@@ -256,11 +280,7 @@ update :: proc(game: ^Game) {
 			// Check collisions
 			// Check if player collides / intersects with a weapon, then it will pick it up
 			ref_kind := get_kind(game.things, ref)
-			ref_is_weapon :=
-				ref_kind == .Laser_Cannon ||
-				ref_kind == .Plasma_Cannon ||
-				ref_kind == .Missile_Launcher
-			if ref != player_ref && ref_is_weapon {
+			if ref != player_ref && is_weapon(ref_kind) {
 				player_pos := get_local_pos(game.things, player_ref)
 				player_sprite_size := sprite_size(get_sprite(game.things, player_ref))
 				player_rect := rl.Rectangle {
