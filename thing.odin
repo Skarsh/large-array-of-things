@@ -2,7 +2,7 @@ package main
 
 import "core:testing"
 
-MAX_THINGS :: 16
+MAX_THINGS :: 32
 
 Vec2 :: [2]f32
 
@@ -35,6 +35,7 @@ Thing :: struct {
 	kind:             Kind,
 	pos:              Vec2,
 	velocity:         Vec2,
+	rotation:         f32,
 	health:           f32,
 	damage:           f32,
 	sprite:           Sprite_ID,
@@ -326,6 +327,19 @@ set_velocity :: proc(things: ^Things, ref: Thing_Ref, velocity: Vec2) {
 		things.things[slot].velocity = velocity
 	}
 }
+
+get_rotation :: proc(things: Things, ref: Thing_Ref) -> f32 {
+	return things.things[deref(things, ref)].rotation
+}
+
+set_rotation :: proc(things: ^Things, ref: Thing_Ref, angle: f32) {
+	if slot := deref(things^, ref); b32(slot) {
+		things.things[slot].rotation = angle
+	}
+}
+
+// TODO(Thomas): Need a helper for getting the complete hierarchy rotation as well
+// like get_world_pos or something like that.
 
 get_health :: proc(things: Things, ref: Thing_Ref) -> f32 {
 	return things.things[deref(things, ref)].health

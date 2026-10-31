@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:math"
 import "core:math/linalg"
 
 import rl "vendor:raylib"
@@ -12,6 +13,16 @@ WEAPON_OFFSET :: Vec2{0, -8}
 
 MAX_SOUNDS :: 16
 
+// TODO(Thomas): CONTINUE HERE, do the math
+draw_rectangle_lines_pro :: proc(
+	dest: rl.Rectangle,
+	origin: Vec2,
+	rotation: f32,
+	color: rl.Color,
+) {
+
+}
+
 draw_things :: proc(game: ^Game) {
 	iter := make_iterator(&game.things)
 	for ref in next_thing(&iter) {
@@ -20,13 +31,34 @@ draw_things :: proc(game: ^Game) {
 			continue
 		}
 		pos := get_world_pos(game.things, ref)
+
 		flags := get_flags(game.things, ref)
 		if .Hidden not_in flags {
-			rl.DrawTextureRec(
+
+			src_rect := sprite_rect(sprite)
+			dst_rect := rl.Rectangle {
+				x      = f32(i32(pos.x)),
+				y      = f32(i32(pos.y)),
+				width  = src_rect.width,
+				height = src_rect.height,
+			}
+
+			rotation := get_rotation(game.things, ref)
+
+			rl.DrawTexturePro(
 				game.spritesheet,
-				sprite_rect(sprite),
-				{f32(i32(pos.x)), f32(i32(pos.y))},
+				src_rect,
+				dst_rect,
+				{dst_rect.width / 2, dst_rect.height / 2},
+				rotation,
 				rl.WHITE,
+			)
+
+			draw_rectangle_lines_pro(
+				dst_rect,
+				{dst_rect.width / 2, dst_rect.height / 2},
+				rotation,
+				rl.RED,
 			)
 		}
 	}
@@ -109,16 +141,18 @@ spawn_projectile :: proc(game: ^Game) {
 	projectile_damage := projectile_defs[projectile_kind].damage
 	rl.PlaySound(game.weapon_sounds[weapon_defs[weapon_kind].sound_idx])
 
-	player_sprite := sprite_rect(get_sprite(game.things, game.player_ref))
+	player_sprite_rect := sprite_rect(get_sprite(game.things, game.player_ref))
+	player_h := player_sprite_rect.height
 	player_pos := get_world_pos(game.things, game.player_ref)
+
+	projectile_h := projectile_sprite_rect.height
+
+	gap: f32 = 2
 
 	set_local_pos(
 		&game.things,
 		projectile_ref,
-		{
-			player_pos.x + (player_sprite.width - projectile_sprite_rect.width) / 2,
-			player_pos.y - projectile_sprite_rect.height - 2,
-		},
+		{player_pos.x, player_pos.y - (player_h / 2) - (projectile_h / 2) - gap},
 	)
 	set_velocity(&game.things, projectile_ref, projectile_velocity)
 	set_damage(&game.things, projectile_ref, projectile_damage)
@@ -179,7 +213,7 @@ init_game :: proc(game: ^Game) -> bool {
 		set_local_pos(
 			&game.things,
 			player_ref,
-			{(f32(WINDOW_WIDTH) / 2) - (player_sprite.width / 2), f32(WINDOW_HEIGHT) - 100},
+			{(f32(WINDOW_WIDTH) / 2), f32(WINDOW_HEIGHT) - 100},
 		)
 		set_health(&game.things, player_ref, 100)
 		set_sprite(&game.things, player_ref, .Player)
@@ -221,14 +255,19 @@ update :: proc(game: ^Game) {
 		cycle_weapon(game)
 	}
 
+	player_rotation: f32
+	player_velocity: Vec2
+
 	if rl.IsKeyDown(.LEFT) {
-		set_velocity(&game.things, player_ref, -{300, 0})
-		player_velocity := get_velocity(game.things, player_ref)
+		player_rotation = -10
+		player_velocity = {-300, 0}
 	} else if rl.IsKeyDown(.RIGHT) {
-		set_velocity(&game.things, player_ref, {300, 0})
-	} else {
-		set_velocity(&game.things, player_ref, {0, 0})
+		player_rotation = 10
+		player_velocity = {300, 0}
 	}
+
+	set_rotation(&game.things, player_ref, player_rotation)
+	set_velocity(&game.things, player_ref, player_velocity)
 
 	// Update entities position etc
 	{
@@ -262,8 +301,8 @@ update :: proc(game: ^Game) {
 				player_pos := get_local_pos(game.things, player_ref)
 				player_sprite_size := sprite_size(get_sprite(game.things, player_ref))
 				player_rect := rl.Rectangle {
-					player_pos.x,
-					player_pos.y,
+					player_pos.x - player_sprite_size.x / 2,
+					player_pos.y - player_sprite_size.y / 2,
 					player_sprite_size.x,
 					player_sprite_size.y,
 				}
@@ -271,8 +310,8 @@ update :: proc(game: ^Game) {
 				ref_pos := get_world_pos(game.things, ref)
 				ref_sprite_size := sprite_size(get_sprite(game.things, ref))
 				ref_rect := rl.Rectangle {
-					ref_pos.x,
-					ref_pos.y,
+					ref_pos.x - ref_sprite_size.x / 2,
+					ref_pos.y - ref_sprite_size.y / 2,
 					ref_sprite_size.x,
 					ref_sprite_size.y,
 				}
