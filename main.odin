@@ -33,15 +33,29 @@ draw_things :: proc(game: ^Game) {
 }
 
 Weapon_Def :: struct {
-	sprite_id: Sprite_ID,
-	sound_idx: int,
+	sprite_id:       Sprite_ID,
+	sound_idx:       int,
+	projectile_kind: Kind,
 }
 
 weapon_defs: [Kind]Weapon_Def = #partial {
-	.Machine_Gun = {sprite_id = .Machine_Gun, sound_idx = 0},
-	.Laser_Cannon = {sprite_id = .Laser_Cannon, sound_idx = 1},
-	.Plasma_Cannon = {sprite_id = .Plasma_Cannon, sound_idx = 2},
-	.Missile_Launcher = {sprite_id = .Missile_Launcher, sound_idx = 3},
+	.Machine_Gun = {sprite_id = .Machine_Gun, sound_idx = 0, projectile_kind = .Bullet},
+	.Laser_Cannon = {sprite_id = .Laser_Cannon, sound_idx = 1, projectile_kind = .Laser_Bolt},
+	.Plasma_Cannon = {sprite_id = .Plasma_Cannon, sound_idx = 2, projectile_kind = .Plasma_Orb},
+	.Missile_Launcher = {sprite_id = .Missile_Launcher, sound_idx = 3, projectile_kind = .Missile},
+}
+
+Projectile_Def :: struct {
+	velocity:  Vec2,
+	sprite_id: Sprite_ID,
+	damage:    f32,
+}
+
+projectile_defs: [Kind]Projectile_Def = #partial {
+	.Bullet = {velocity = {0, -600}, sprite_id = .Bullet, damage = 10},
+	.Laser_Bolt = {velocity = {0, -1200}, sprite_id = .Laser_Bolt, damage = 15},
+	.Plasma_Orb = {velocity = {0, -400}, sprite_id = .Plasma_Orb, damage = 20},
+	.Missile = {velocity = {0, -800}, sprite_id = .Missile, damage = 30},
 }
 
 Game :: struct {
@@ -82,6 +96,34 @@ spawn_weapon :: proc(game: ^Game, kind: Kind, pos: Vec2) {
 	weapon_ref := add_thing(&game.things, kind)
 	set_local_pos(&game.things, weapon_ref, pos)
 	set_sprite(&game.things, weapon_ref, weapon_defs[kind].sprite_id)
+}
+
+spawn_projectile :: proc(game: ^Game) {
+	weapon_kind := get_kind(game.things, game.player_active_weapon_ref)
+
+	projectile_kind := weapon_defs[weapon_kind].projectile_kind
+	projectile_sprite_rect := sprite_rect(projectile_defs[projectile_kind].sprite_id)
+	projectile_ref := add_thing(&game.things, projectile_kind)
+	projectile_sprite := projectile_defs[projectile_kind].sprite_id
+	projectile_velocity := projectile_defs[projectile_kind].velocity
+	projectile_damage := projectile_defs[projectile_kind].damage
+	rl.PlaySound(game.weapon_sounds[weapon_defs[weapon_kind].sound_idx])
+
+	player_sprite := sprite_rect(get_sprite(game.things, game.player_ref))
+	player_pos := get_world_pos(game.things, game.player_ref)
+
+	set_local_pos(
+		&game.things,
+		projectile_ref,
+		{
+			player_pos.x + (player_sprite.width - projectile_sprite_rect.width) / 2,
+			player_pos.y - projectile_sprite_rect.height - 2,
+		},
+	)
+	set_velocity(&game.things, projectile_ref, projectile_velocity)
+	set_damage(&game.things, projectile_ref, projectile_damage)
+	set_sprite(&game.things, projectile_ref, projectile_sprite)
+
 }
 
 is_weapon :: proc(kind: Kind) -> bool {
@@ -172,71 +214,7 @@ update :: proc(game: ^Game) {
 
 	// Input
 	if rl.IsKeyPressed(.SPACE) {
-
-		weapon_kind := get_kind(game.things, game.player_active_weapon_ref)
-
-		projectile_sprite_rect: rl.Rectangle
-		projectile_ref: Thing_Ref
-		projectile_sprite: Sprite_ID
-		projectile_velocity: Vec2
-		projectile_damage: f32
-
-		// TODO(Thomas): All of this could be table driven I think
-		#partial switch weapon_kind {
-		case .Machine_Gun:
-			projectile_sprite_rect = sprite_rect(.Bullet)
-			projectile_ref = add_thing(&game.things, .Bullet)
-			projectile_sprite = .Bullet
-			projectile_velocity = BULLET_VELOCITY
-			projectile_damage = BULLET_DAMAGE
-
-			rl.PlaySound(game.weapon_sounds[weapon_defs[.Machine_Gun].sound_idx])
-
-		case .Laser_Cannon:
-			projectile_sprite_rect = sprite_rect(.Laser_Bolt)
-			projectile_ref = add_thing(&game.things, .Laser_Bolt)
-			projectile_sprite = .Laser_Bolt
-			projectile_velocity = LASER_VELOCITY
-			projectile_damage = LASER_DAMAGE
-
-			rl.PlaySound(game.weapon_sounds[weapon_defs[.Laser_Cannon].sound_idx])
-
-		case .Plasma_Cannon:
-			projectile_sprite_rect = sprite_rect(.Plasma_Orb)
-			projectile_ref = add_thing(&game.things, .Plasma_Orb)
-			projectile_sprite = .Plasma_Orb
-			projectile_velocity = PLASMA_VELOCITY
-			projectile_damage = PLASMA_DAMAGE
-
-			rl.PlaySound(game.weapon_sounds[weapon_defs[.Plasma_Cannon].sound_idx])
-
-		case .Missile_Launcher:
-			projectile_sprite_rect = sprite_rect(.Missile)
-			projectile_ref = add_thing(&game.things, .Missile)
-			projectile_sprite = .Missile
-			projectile_velocity = MISSILE_VELOCITY
-			projectile_damage = MISSILE_DAMAGE
-
-			rl.PlaySound(game.weapon_sounds[weapon_defs[.Missile_Launcher].sound_idx])
-
-		case:
-			panic("illegal weapon kind")
-		}
-
-		player_sprite := sprite_rect(get_sprite(game.things, player_ref))
-		player_pos := get_world_pos(game.things, player_ref)
-
-		set_local_pos(
-			&game.things,
-			projectile_ref,
-			{
-				player_pos.x + (player_sprite.width - projectile_sprite_rect.width) / 2,
-				player_pos.y - projectile_sprite_rect.height - 2,
-			},
-		)
-		set_velocity(&game.things, projectile_ref, projectile_velocity)
-		set_damage(&game.things, projectile_ref, projectile_damage)
-		set_sprite(&game.things, projectile_ref, projectile_sprite)
+		spawn_projectile(game)
 	}
 
 	if rl.IsKeyPressed(.F) {

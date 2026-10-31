@@ -1,20 +1,8 @@
 package main
 
-import "core:fmt"
 import "core:testing"
 
 MAX_THINGS :: 16
-
-// TODO(Thomas): This is bad, could probably move this into a table!!!
-BULLET_VELOCITY: Vec2 : {0, -600}
-LASER_VELOCITY: Vec2 : {0, -1200}
-PLASMA_VELOCITY: Vec2 : {0, -400}
-MISSILE_VELOCITY: Vec2 : {0, -800}
-
-BULLET_DAMAGE :: 10
-LASER_DAMAGE :: 15
-PLASMA_DAMAGE :: 20
-MISSILE_DAMAGE :: 30
 
 Vec2 :: [2]f32
 
