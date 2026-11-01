@@ -13,14 +13,42 @@ WEAPON_OFFSET :: Vec2{0, -8}
 
 MAX_SOUNDS :: 16
 
-// TODO(Thomas): CONTINUE HERE, do the math
-draw_rectangle_lines_pro :: proc(
-	dest: rl.Rectangle,
-	origin: Vec2,
-	rotation: f32,
-	color: rl.Color,
-) {
+DRAW_DEBUG_LINES :: true
 
+draw_rectangle_lines_pro :: proc(rect: rl.Rectangle, pivot: Vec2, rotation: f32, color: rl.Color) {
+	corners := rotate_rectangle(rect, pivot, rotation)
+
+	for i in 0 ..< len(corners) {
+		rl.DrawLineEx(corners[i], corners[(i + 1) % 4], 2, color)
+	}
+}
+
+rotate_rectangle :: proc(rect: rl.Rectangle, pivot: Vec2, angle_deg: f32) -> (result: [4]Vec2) {
+	angle_rad := math.to_radians(angle_deg)
+	c := math.cos(angle_rad)
+	s := math.sin(angle_rad)
+
+	center := Vec2{rect.x, rect.y}
+	half := Vec2{rect.width, rect.height} / 2
+
+	// construct up the 4 points
+	corners := [4]Vec2 {
+		center - half,
+		{center.x + half.x, center.y - half.y},
+		center + half,
+		{center.x - half.x, center.y + half.y},
+	}
+
+	for pos, i in corners {
+		result[i].x = pivot.x + (pos.x - pivot.x) * c - (pos.y - pivot.y) * s
+		result[i].y = pivot.y + (pos.x - pivot.x) * s + (pos.y - pivot.y) * c
+	}
+
+	return
+}
+
+draw_circle :: proc(point: Vec2, radius: f32, color: rl.Color) {
+	rl.DrawCircle(i32(point.x), i32(point.y), radius, color)
 }
 
 draw_things :: proc(game: ^Game) {
@@ -54,12 +82,12 @@ draw_things :: proc(game: ^Game) {
 				rl.WHITE,
 			)
 
-			draw_rectangle_lines_pro(
-				dst_rect,
-				{dst_rect.width / 2, dst_rect.height / 2},
-				rotation,
-				rl.RED,
-			)
+
+			// Draw debug lines for the rects
+			if DRAW_DEBUG_LINES {
+				center := Vec2{dst_rect.x, dst_rect.y}
+				draw_rectangle_lines_pro(dst_rect, center, rotation, rl.RED)
+			}
 		}
 	}
 }
