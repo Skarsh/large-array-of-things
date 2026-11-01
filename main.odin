@@ -124,6 +124,7 @@ Game :: struct {
 	player_ref:               Thing_Ref,
 	player_active_weapon_ref: Thing_Ref,
 	weapon_sounds:            [MAX_SOUNDS]rl.Sound,
+	music:                    rl.Music,
 }
 
 cycle_weapon :: proc(game: ^Game) {
@@ -233,6 +234,9 @@ init_game :: proc(game: ^Game) -> bool {
 		"data/sounds/weapons/missile_launcher_fire.wav",
 	)
 
+	// Music
+	game.music = rl.LoadMusicStream("data/music/quiet_orbit.ogg")
+	rl.PlayMusicStream(game.music)
 
 	// Add player
 	{
@@ -270,6 +274,9 @@ init_game :: proc(game: ^Game) -> bool {
 }
 
 update :: proc(game: ^Game) {
+
+	// Update music
+	rl.UpdateMusicStream(game.music)
 
 	// PLayer
 	player_ref := game.player_ref
