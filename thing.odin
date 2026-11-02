@@ -1,5 +1,6 @@
 package main
 
+import "core:math"
 import "core:testing"
 
 MAX_THINGS :: 32
@@ -294,12 +295,14 @@ set_local_pos :: proc(things: ^Things, ref: Thing_Ref, pos: Vec2) {
 	}
 }
 
-// Traverses the parent hierarchy of the passed in ref,
-// summing up all the local_positions up to and including the top parent.
-// The top parent's local_pos is its world_pos.
+// Traverses up the parent hierarchy of the ref, to find it's world position.
+// It starts with the ref's local position, then rotates by the parent's
+// rotation, before it finally adds the parent's local position.
 get_world_pos :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
 
 	world_offset: Vec2
+	ref_pos := get_local_pos(things, ref)
+	world_offset += ref_pos
 	new_ref := ref
 	for {
 
@@ -308,14 +311,25 @@ get_world_pos :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
 			break
 		}
 
+		parent_rotation := get_rotation(things, parent)
+		angle_rad := math.to_radians(parent_rotation)
+		c := math.cos(angle_rad)
+		s := math.sin(angle_rad)
+
 		parent_pos := get_local_pos(things, parent)
-		world_offset += parent_pos
+		new_ref_pos := get_local_pos(things, new_ref)
+
+		rotated_ref_pos: Vec2 = {
+			world_offset.x * c - world_offset.y * s,
+			world_offset.x * s + world_offset.y * c,
+		}
+
+		world_offset = rotated_ref_pos + parent_pos
 
 		new_ref = parent
 	}
 
-	ref_pos := get_local_pos(things, ref)
-	return ref_pos + world_offset
+	return world_offset
 }
 
 get_velocity :: proc(things: Things, ref: Thing_Ref) -> Vec2 {
@@ -338,8 +352,22 @@ set_rotation :: proc(things: ^Things, ref: Thing_Ref, angle: f32) {
 	}
 }
 
-// TODO(Thomas): Need a helper for getting the complete hierarchy rotation as well
-// like get_world_pos or something like that.
+get_world_rotation :: proc(things: Things, ref: Thing_Ref) -> f32 {
+	world_rotation: f32
+	new_ref := ref
+	for {
+		parent := get_parent(things, new_ref)
+		if parent == nil_ref() {
+			break
+		}
+
+		parent_rotation := get_rotation(things, parent)
+		world_rotation += parent_rotation
+		new_ref = parent
+	}
+	ref_rotation := get_rotation(things, ref)
+	return ref_rotation + world_rotation
+}
 
 get_health :: proc(things: Things, ref: Thing_Ref) -> f32 {
 	return things.things[deref(things, ref)].health

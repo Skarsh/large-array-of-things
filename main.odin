@@ -71,7 +71,7 @@ draw_things :: proc(game: ^Game) {
 				height = src_rect.height,
 			}
 
-			rotation := get_rotation(game.things, ref)
+			rotation := get_world_rotation(game.things, ref)
 
 			rl.DrawTexturePro(
 				game.spritesheet,
@@ -237,6 +237,7 @@ init_game :: proc(game: ^Game) -> bool {
 	// Music
 	game.music = rl.LoadMusicStream("data/music/quiet_orbit.ogg")
 	rl.PlayMusicStream(game.music)
+	rl.SetMusicVolume(game.music, 0.1)
 
 	// Add player
 	{
@@ -379,6 +380,7 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 
 	rl.InitAudioDevice()
+	rl.SetMasterVolume(0.1)
 
 	game: Game
 	if !init_game(&game) {
